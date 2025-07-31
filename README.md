@@ -66,7 +66,7 @@ BIOS 파일을 `asus_tools.bat`로 직접 드래그하여 실행할 수 있습�
 ```
 [ANALYZE] ASUS BIOS 파일 분석 모드
 ==================================================
-분석할 파일: bios_image.bin
+분석할 파일: bios_sector_ABCDEFGH-IJKL-MNOP-QRST-UVWXYZABCDEF.bin
 파일 크기: 16,777,216 bytes (16.00 MB)
 
 === 매직 바이트 분석 ===
