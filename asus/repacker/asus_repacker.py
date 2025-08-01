@@ -197,6 +197,14 @@ class AsusImageRepacker:
                 filename = f"image_nr{image['number']}_off0x{abs_offset:08x}.{image['type']}"
                 filepath = os.path.join(pkg_dir, filename)
                 
+                # 파일명 패턴 검증
+                import re
+                pattern = r'^image_nr(\d+)_off0x([0-9A-Fa-f]+)\.[a-zA-Z0-9]+$'
+                if not re.match(pattern, filename):
+                    print(f"  [WARNING] 생성된 파일명 패턴이 올바르지 않음 (image_nr{{숫자}}_off0x{{16진수}}.{{확장자}} 형식이어야 함): {filename}")
+                    unchanged_count += 1
+                    continue
+                
                 if os.path.exists(filepath):
                     with open(filepath, 'rb') as f:
                         extracted_data = f.read()

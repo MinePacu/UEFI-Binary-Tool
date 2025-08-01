@@ -4,7 +4,11 @@
 
 ## 📋 개요
 
-이 도구는 메인보드의 BIOS/UEFI 내에 있는 Section을 분석하여 내부 구조를 파악하고, 임베디드 이미지를 다시 패키징할 수 있느 솔루션입니다.
+이 도구는 메인보드의 BIOS/UEFI 내에 있는 Section을 분석하여 내부 구조를 파악하고, 임베디드 이미지를 다시 패키징할 수 있는 솔루션입니다.
+
+**지원 제조사:**
+- **ASUS**: ASUS Packer 형식 지원
+- **MSI**: MSI Packer 형식 ($MsI$ 시그니처) 지원
 
 ## 🚀 주요 기능
 
@@ -25,18 +29,32 @@
 ## 🎯 사용법
 
 ### 1. Windows에서 배치 파일 실행
+
+**ASUS 도구:**
 ```bash
 asus_tools.bat
 ```
 
+**MSI 도구:**
+```bash
+msi_tools.bat
+```
+
 ### 2. Python 직접 실행
 
-#### 대화형 모드
+#### ASUS 대화형 모드
 ```bash
 python asus_main.py
 ```
 
+#### MSI 대화형 모드
+```bash
+python msi_main.py
+```
+
 #### 명령줄 모드
+
+**ASUS:**
 ```bash
 # 파일 분석
 python asus_main.py analyze [파일경로]
@@ -45,8 +63,24 @@ python asus_main.py analyze [파일경로]
 python asus_main.py repack [파일경로]
 ```
 
+**MSI:**
+```bash
+# 파일 분석
+python msi_main.py analyze [파일경로]
+
+# 이미지 리패킹 (추출된 폴더 필요)
+python msi_main.py repack [디렉터리경로]
+```
+
 #### 드래그 앤 드롭
-BIOS 파일을 `asus_tools.bat`로 직접 드래그하여 실행할 수 있습니다.
+**ASUS**: BIOS 파일을 `asus_tools.bat`로 직접 드래그하여 실행할 수 있습니다.
+
+**MSI**: MSI BIOS 파일(.bin)을 `msi_tools.bat`로 드래그하면 다음과 같이 자동 처리됩니다:
+1. 🔍 **파일 분석**: MSI Packer 구조 분석
+2. � **추출 폴더 확인**: 기존 `msi_extracted/MSI_pack_폴더/` 검색
+3. 📦 **구조 보존 리패킹**: 원본과 동일한 구조로 재생성
+4. 📋 **리포트 생성**: 분석 및 리패킹 결과 문서화
+5. ⚠️ **주의**: 이미지 추출 기능은 별도 도구 사용 필요
 
 ## 🔧 지원 형식
 
@@ -102,14 +136,21 @@ BIOS 파일을 `asus_tools.bat`로 직접 드래그하여 실행할 수 있습�
 ## 📁 프로젝트 구조
 
 ```
-program/
-├── asus_main.py           # 메인 프로그램 (진입점)
-├── asus_tools.bat         # Windows 배치 실행 스크립트
+UEFI-Binary-Tool/
+├── asus_main.py           # ASUS 메인 프로그램 (진입점)
+├── asus_tools.bat         # ASUS Windows 배치 실행 스크립트
+├── msi_main.py            # MSI 메인 프로그램 (진입점)
+├── msi_tools.bat          # MSI Windows 배치 실행 스크립트
 ├── asus/                  # ASUS 관련 모듈
 │   ├── analyzer/
-│   │   └── asus_analyzer.py    # BIOS 파일 분석기
+│   │   └── asus_analyzer.py    # ASUS BIOS 파일 분석기
 │   └── repacker/
-│       └── asus_repacker.py    # 이미지 리패커
+│       └── asus_repacker.py    # ASUS 이미지 리패커
+├── msi/                   # MSI 관련 모듈
+│   ├── analyzer/
+│   │   └── msi_analyzer.py     # MSI BIOS 파일 분석기
+│   └── repacker/
+│       └── msi_repacker.py     # MSI 이미지 리패커
 └── common/                # 공통 유틸리티
     └── file_utils.py      # 파일 처리 유틸리티
 ```
@@ -117,11 +158,18 @@ program/
 ## 📖 모듈 상세 설명
 
 ### `asus_main.py`
-- **역할**: 프로그램의 진입점 및 메인 컨트롤러
+- **역할**: ASUS 프로그램의 진입점 및 메인 컨트롤러
 - **기능**:
   - 사용자 인터페이스 제공 (대화형/명령줄)
   - 각 모드별 작업 조정
   - 파일 경로 검증 및 처리
+
+### `msi_main.py`
+- **역할**: MSI 프로그램의 진입점 및 메인 컨트롤러
+- **기능**:
+  - MSI 전용 사용자 인터페이스 제공
+  - 분석/리패킹 모드 지원 (추출 기능 제외)
+  - 드래그 앤 드롭 지원
 
 ### `asus/analyzer/asus_analyzer.py`
 - **역할**: ASUS BIOS 파일 분석
@@ -132,14 +180,32 @@ program/
   - ASUS Packer 형식 식별
   - 파일 구조 시각화
 
+### `msi/analyzer/msi_analyzer.py`
+- **역할**: MSI BIOS 파일 분석 (분석 전용)
+- **주요 클래스**: `MSIFileAnalyzer`, `MSIHeader`
+- **기능**:
+  - MSI Packer ($MsI$ 시그니처) 형식 분석
+  - 12바이트 헤더 구조 파싱
+  - 이미지 타입 자동 감지
+  - 상세 분석 리포트 생성 (추출 기능 제외)
+
 ### `asus/repacker/asus_repacker.py`
-- **역할**: 이미지 리패킹
+- **역할**: ASUS 이미지 리패킹
 - **주요 클래스**: `AsusImageRepacker`
 - **기능**:
   - ASUS Packer 형식 감지
   - 추출된 이미지 재패키징
   - 메타데이터 보존
   - 구조 무결성 검증
+
+### `msi/repacker/msi_repacker.py`
+- **역할**: MSI 이미지 리패킹 (리패킹 전용)
+- **주요 클래스**: `MSIImageRepacker`
+- **기능**:
+  - 추출된 이미지를 MSI Packer 형식으로 리패키징
+  - 원본 헤더 정보 보존
+  - 분석 결과 기반 정확한 재구성
+  - 리패킹 결과 검증 (추출 기능 제외)
 
 ### `common/file_utils.py`
 - **역할**: 공통 파일 처리 유틸리티
@@ -155,4 +221,6 @@ program/
 
 ---
 
-**⚡ 빠른 시작**: `asus_tools.bat`를 실행하거나 BIOS 파일을 `asus_tools.bat`로 드래그하세요!
+**⚡ 빠른 시작**: 
+- **ASUS**: `asus_tools.bat`를 실행하거나 BIOS 파일을 `asus_tools.bat`로 드래그하세요!
+- **MSI**: `msi_tools.bat`를 실행하거나 BIOS 파일을 `msi_tools.bat`로 드래그하세요!
