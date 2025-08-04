@@ -6,7 +6,7 @@ A Python-based tool for analyzing and repacking Section binary files from mother
 
 This tool provides a solution to analyze the Section within motherboard BIOS/UEFI to understand the internal structure and repackage embedded images.
 
-> [!Info]
+> [!Note]
 > Usage instructions will be added to the Wiki in the future.
 
 **Supported Manufacturers:**
