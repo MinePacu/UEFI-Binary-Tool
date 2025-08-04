@@ -1,4 +1,4 @@
-> [!Info]
+> [!NOTE]
 > For the English version of README.md , see the file 'README-en.md'.
 
 # BIOS Section Binary 분석/Emebedded Image 리패킹 통합 도구
@@ -9,7 +9,7 @@
 
 이 도구는 메인보드의 BIOS/UEFI 내에 있는 Section을 분석하여 내부 구조를 파악하고, 임베디드 이미지를 다시 패키징할 수 있는 솔루션입니다.
 
-> [!Info]
+> [!NOTE]
 > 사용법은 추후 Wiki에 추가 예정입니다.
 
 **지원 제조사:**
