@@ -8,7 +8,10 @@
 
 **지원 제조사:**
 - **ASUS**: ASUS Packer 형식 지원
-- **MSI**: MSI Packer 형식 ($MsI$ 시그니처) 지원
+- **MSI**: MSI Packer 형식 (`$MsI$` 시그니처) 지원
+
+> [!CAUTION]
+> `MSI`의 경우 `CLICK BIOS X`만 지원합니다.<br>`CLICK BIOS 5`의 경우 추후 아이콘 변경을 위한 기능 지원을 검토 중입니다.
 
 ## 🚀 주요 기능
 
@@ -154,66 +157,6 @@ UEFI-Binary-Tool/
 └── common/                # 공통 유틸리티
     └── file_utils.py      # 파일 처리 유틸리티
 ```
-
-## 📖 모듈 상세 설명
-
-### `asus_main.py`
-- **역할**: ASUS 프로그램의 진입점 및 메인 컨트롤러
-- **기능**:
-  - 사용자 인터페이스 제공 (대화형/명령줄)
-  - 각 모드별 작업 조정
-  - 파일 경로 검증 및 처리
-
-### `msi_main.py`
-- **역할**: MSI 프로그램의 진입점 및 메인 컨트롤러
-- **기능**:
-  - MSI 전용 사용자 인터페이스 제공
-  - 분석/리패킹 모드 지원 (추출 기능 제외)
-  - 드래그 앤 드롭 지원
-
-### `asus/analyzer/asus_analyzer.py`
-- **역할**: ASUS BIOS 파일 분석
-- **주요 클래스**: `AsusFileAnalyzer`
-- **기능**:
-  - 매직 바이트 패턴 감지
-  - UEFI 구조 분석
-  - ASUS Packer 형식 식별
-  - 파일 구조 시각화
-
-### `msi/analyzer/msi_analyzer.py`
-- **역할**: MSI BIOS 파일 분석 (분석 전용)
-- **주요 클래스**: `MSIFileAnalyzer`, `MSIHeader`
-- **기능**:
-  - MSI Packer ($MsI$ 시그니처) 형식 분석
-  - 12바이트 헤더 구조 파싱
-  - 이미지 타입 자동 감지
-  - 상세 분석 리포트 생성 (추출 기능 제외)
-
-### `asus/repacker/asus_repacker.py`
-- **역할**: ASUS 이미지 리패킹
-- **주요 클래스**: `AsusImageRepacker`
-- **기능**:
-  - ASUS Packer 형식 감지
-  - 추출된 이미지 재패키징
-  - 메타데이터 보존
-  - 구조 무결성 검증
-
-### `msi/repacker/msi_repacker.py`
-- **역할**: MSI 이미지 리패킹 (리패킹 전용)
-- **주요 클래스**: `MSIImageRepacker`
-- **기능**:
-  - 추출된 이미지를 MSI Packer 형식으로 리패키징
-  - 원본 헤더 정보 보존
-  - 분석 결과 기반 정확한 재구성
-  - 리패킹 결과 검증 (추출 기능 제외)
-
-### `common/file_utils.py`
-- **역할**: 공통 파일 처리 유틸리티
-- **기능**:
-  - 파일 경로 입력 및 검증
-  - 명령줄 인수 처리
-  - 디렉터리 생성 및 관리
-  - 출력 파일명 생성
 
 ## 🤝 기여
 
