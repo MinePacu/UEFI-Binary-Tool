@@ -385,6 +385,16 @@ class MSIImageRepacker:
             with open(output_file, 'wb') as out_f:
                 total_size = 0
                 
+                # MSI 시그니처를 파일 시작 부분에 한 번만 쓰기
+                msi_signature = self.MSI_SIGNATURE  # b'$MsI$'
+                out_f.write(msi_signature)
+                total_size += len(msi_signature)
+                
+                # 패딩/메타데이터 (원본과 동일하게)
+                padding = b'\x8E\x00'
+                out_f.write(padding)
+                total_size += len(padding)
+                
                 for i, (filename, file_path) in enumerate(image_files):
                     print(f"처리 중: {filename}")
                     
@@ -397,23 +407,21 @@ class MSIImageRepacker:
                     if structure_info and i < len(structure_info['entries']):
                         header_info = structure_info['entries'][i]
                     
-                    # MSI 헤더 생성
+                    # MSI 엔트리 헤더 생성 (MSI 시그니처 제외)
                     if header_info:
                         # 원본 구조 정보 사용
-                        header = self._create_msi_header_from_structure(header_info, len(image_data))
-                        print(f"  원본 구조 정보 사용: sector=0x{header_info.get('sector', 0):02X}, "
-                              f"layer=0x{header_info.get('layer', 0):02X}, "
-                              f"number={header_info.get('image_number', i)}")
+                        entry_header = self._create_msi_entry_header(header_info.get('image_number', i + 1), len(image_data))
+                        print(f"  원본 구조 정보 사용: image_number={header_info.get('image_number', i + 1)}")
                     else:
                         # 기본 헤더 생성
-                        header = self._create_msi_header(i, len(image_data))
-                        print(f"  기본 헤더 사용: image_number={i}")
+                        entry_header = self._create_msi_entry_header(i + 1, len(image_data))
+                        print(f"  기본 헤더 사용: image_number={i + 1}")
                     
-                    # 헤더 + 이미지 데이터 쓰기
-                    out_f.write(header)
+                    # 엔트리 헤더 + 이미지 데이터 쓰기
+                    out_f.write(entry_header)
                     out_f.write(image_data)
                     
-                    total_size += self.HEADER_SIZE + len(image_data)
+                    total_size += len(entry_header) + len(image_data)
                 
                 print(f"총 바이너리 크기: {total_size:,} bytes")
                 
@@ -484,6 +492,16 @@ class MSIImageRepacker:
             with open(output_file, 'wb') as out_f:
                 total_size = 0
                 
+                # MSI 시그니처를 파일 시작 부분에 한 번만 쓰기
+                msi_signature = self.MSI_SIGNATURE  # b'$MsI$'
+                out_f.write(msi_signature)
+                total_size += len(msi_signature)
+                
+                # 패딩/메타데이터 (원본과 동일하게)
+                padding = b'\x8E\x00'
+                out_f.write(padding)
+                total_size += len(padding)
+                
                 for i, image_file in enumerate(image_files):
                     print(f"처리 중: {os.path.basename(image_file)}")
                     
@@ -491,14 +509,14 @@ class MSIImageRepacker:
                     with open(image_file, 'rb') as img_f:
                         image_data = img_f.read()
                     
-                    # MSI 헤더 생성
-                    header = self._create_msi_header(i, len(image_data))
+                    # 이미지 엔트리 헤더 생성 (MSI 시그니처 제외)
+                    entry_header = self._create_msi_entry_header(i + 1, len(image_data))
                     
-                    # 헤더 + 이미지 데이터 쓰기
-                    out_f.write(header)
+                    # 엔트리 헤더 + 이미지 데이터 쓰기
+                    out_f.write(entry_header)
                     out_f.write(image_data)
                     
-                    total_size += self.HEADER_SIZE + len(image_data)
+                    total_size += len(entry_header) + len(image_data)
                 
                 print(f"총 바이너리 크기: {total_size:,} bytes")
                 return True
@@ -514,6 +532,16 @@ class MSIImageRepacker:
             with open(output_file, 'wb') as out_f:
                 total_size = 0
                 
+                # MSI 시그니처를 파일 시작 부분에 한 번만 쓰기
+                msi_signature = self.MSI_SIGNATURE  # b'$MsI$'
+                out_f.write(msi_signature)
+                total_size += len(msi_signature)
+                
+                # 패딩/메타데이터 (원본과 동일하게)
+                padding = b'\x8E\x00'
+                out_f.write(padding)
+                total_size += len(padding)
+                
                 for mapping in mappings:
                     original_entry = mapping['original_entry']
                     image_file = mapping['image_file']
@@ -524,22 +552,16 @@ class MSIImageRepacker:
                     with open(image_file, 'rb') as img_f:
                         image_data = img_f.read()
                     
-                    if mapping.get('preserve_header', False):
-                        # 원본 헤더 정보 보존
-                        header = self._create_msi_header_from_original(
-                            original_entry['header'], len(image_data)
-                        )
-                    else:
-                        # 새로운 헤더 생성
-                        header = self._create_msi_header(
-                            original_entry['index'], len(image_data)
-                        )
+                    # MSI 엔트리 헤더 생성 (MSI 시그니처 제외)
+                    entry_header = self._create_msi_entry_header(
+                        original_entry['index'], len(image_data)
+                    )
                     
-                    # 헤더 + 이미지 데이터 쓰기
-                    out_f.write(header)
+                    # 엔트리 헤더 + 이미지 데이터 쓰기
+                    out_f.write(entry_header)
                     out_f.write(image_data)
                     
-                    total_size += self.HEADER_SIZE + len(image_data)
+                    total_size += len(entry_header) + len(image_data)
                 
                 print(f"총 바이너리 크기: {total_size:,} bytes")
                 
@@ -558,7 +580,7 @@ class MSIImageRepacker:
             return False
     
     def _create_msi_header(self, image_number: int, image_size: int) -> bytes:
-        """MSI 헤더 생성"""
+        """MSI 헤더 생성 (전체 파일용 - 사용되지 않음)"""
         header = bytearray(self.HEADER_SIZE)
         
         # MSI 시그니처
@@ -574,6 +596,21 @@ class MSIImageRepacker:
         struct.pack_into('<I', header, 8, image_size)
         
         return bytes(header)
+    
+    def _create_msi_entry_header(self, image_number: int, image_size: int) -> bytes:
+        """MSI 엔트리 헤더 생성 (MSI 시그니처 제외)"""
+        # #imageext.py가 기대하는 구조:
+        # - 이미지 번호 (2바이트, little endian)
+        # - 이미지 크기 (4바이트, little endian)
+        entry_header = bytearray(6)
+        
+        # 이미지 번호 (2바이트, little endian)
+        struct.pack_into('<H', entry_header, 0, image_number)
+        
+        # 이미지 크기 (4바이트, little endian)  
+        struct.pack_into('<I', entry_header, 2, image_size)
+        
+        return bytes(entry_header)
     
     def _create_msi_header_from_original(self, original_header: Dict[str, Any], 
                                        new_size: int) -> bytes:
