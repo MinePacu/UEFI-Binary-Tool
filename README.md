@@ -1,5 +1,5 @@
 > [!NOTE]
-> For the English version of README.md , see the file 'README-en.md'.
+> For the English version of README.md , see the file [README-en.md](https://github.com/MinePacu/UEFI-Binary-Tool/blob/main/README-en.md).
 
 # BIOS Section Binary 분석/Emebedded Image 리패킹 통합 도구
 
