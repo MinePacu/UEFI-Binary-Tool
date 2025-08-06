@@ -1,6 +1,9 @@
 > [!NOTE]
 > For the English version of README.md , see the file [README-en.md](https://github.com/MinePacu/UEFI-Binary-Tool/blob/main/README-en.md).
 
+> [!IMPORTANT]
+> 이 프로그램을 사용하면서 나온 결과, 손실, 피해에 대해서 이 프로그램의 개발자는 아무런 책임을 지지 않습니다. 신중하게 사용하세요.
+
 # BIOS Section Binary 분석/Emebedded Image 리패킹 통합 도구
 
 메인보드의 BIOS/UEFI의 Section 바이너리 파일을 분석하고 리패킹하는 Python 기반 도구입니다.
