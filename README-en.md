@@ -1,3 +1,6 @@
+> [!IMPORTANT]
+> The developer of this program is not responsible for any consequences, losses, or damages that result from using this program. Use it carefully.
+
 # BIOS Section Binary Analysis/Embedded Image Repacking Integrated Tool
 
 A Python-based tool for analyzing and repacking Section binary files from motherboard BIOS/UEFI.
