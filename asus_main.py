@@ -44,8 +44,8 @@ def get_target_file(provided_file=None):
         file_path = get_command_line_file()
     
     if file_path is None:
-        # 기본 파일 경로 (옵션)
-        default_file_path = r"C:\OtherProgram\bios_edit\UefiImageExt_b850_tx_ver2\ImageExt\Section_Raw_CC5840D2-D8EA-459E-BAF4-349AC710EBBE_body.bin"
+        # 기본 파일 경로 (현재 프로그램 디렉터리에 있는 파일)
+        default_file_path = os.path.join(current_dir, "Section_Raw_CC5840D2-D8EA-459E-BAF4-349AC710EBBE_body.bin")
         
         # 사용자로부터 파일 경로 입력받기
         print("분석할 ASUS BIOS 파일을 선택하세요.")
@@ -99,7 +99,6 @@ def repack_mode(file_path=None):
         if not os.path.exists(extracted_dir):
             print(f"오류: 추출된 파일 디렉터리를 찾을 수 없습니다.")
             print(f"경로: {extracted_dir}")
-            print(f"먼저 옵션 5를 사용하여 ASUS 이미지를 추출하거나 올바른 경로를 입력하세요.")
             return False
         
         # 출력 파일명 설정
@@ -134,27 +133,21 @@ def interactive_mode():
         print("\n[MENU] ASUS BIOS 도구 메인 메뉴")
         print("=" * 50)
         print("1. [ANALYZE] ASUS BIOS 파일 분석")
-        print("2. [EXTRACT] ASUS 이미지 추출")
-        print("3. [REPACK] ASUS 이미지 리패킹")
-        print("4. [INTEGRATED] 통합 작업 (분석 + 추출)")
-        print("5. [EXIT] 종료")
+        print("2. [REPACK] ASUS 이미지 리패킹")
+        print("3. [EXIT] 종료")
         print("=" * 50)
-        
-        choice = input("선택하세요 (1-5): ").strip()
-        
+
+        choice = input("선택하세요 (1-3): ").strip()
+
         if choice == "1":
             analyze_mode()
         elif choice == "2":
-            extract_mode()
-        elif choice == "3":
             repack_mode()
-        elif choice == "4":
-            integrated_mode()
-        elif choice == "5":
+        elif choice == "3":
             print("\n프로그램을 종료합니다.")
             break
         else:
-            print("[ERROR] 잘못된 선택입니다. 1-5 중에서 선택해주세요.")
+            print("[ERROR] 잘못된 선택입니다. 1-3 중에서 선택해주세요.")
         
         print("\n" + "-" * 70)
         continue_choice = input("다른 작업을 수행하시겠습니까? (y/n): ").lower().strip()
@@ -181,8 +174,6 @@ def main():
         success = analyze_mode(file_path)
     elif mode == "repack":
         success = repack_mode(file_path)
-    elif mode == "integrated":
-        success = integrated_mode(file_path)
     else:
         print(f"[ERROR] 알 수 없는 모드: {mode}")
         print("사용법: python asus_main.py [analyze|extract|repack|integrated] [파일경로]")
