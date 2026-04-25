@@ -22,6 +22,7 @@ This tool provides a solution to analyze the Section within motherboard BIOS/UEF
 ## 🚀 Key Features
 
 - **Section Binary File Analysis**: Magic byte pattern detection and structure analysis
+- **Format validation before file loading**: Checks ASUS/MSI Packer signatures and basic entry structure
 - **Image Repacking**: Packaging modified images in each manufacturer's Packer format
 
 ## 🛠️ Installation and Requirements
@@ -41,12 +42,26 @@ This tool provides a solution to analyze the Section within motherboard BIOS/UEF
 
 **ASUS Tools:**
 ```bash
-asus_tools.bat
+batch\asus_tools.bat
 ```
 
 **MSI Tools:**
 ```bash
-msi_tools.bat
+batch\msi_tools.bat
+```
+
+Batch files also choose Korean or English from the Windows language setting.
+- Korean Windows: Korean batch menus
+- Other languages: English batch menus
+
+You can force the batch language with the same environment variable.
+
+```bat
+set UEFI_BINARY_TOOL_LANG=ko
+batch\asus_tools.bat
+
+set UEFI_BINARY_TOOL_LANG=en
+batch\msi_tools.bat
 ```
 
 ### 2. Direct Python Execution
@@ -82,9 +97,9 @@ python msi_main.py repack [directory_path]
 ```
 
 #### Drag and Drop
-**ASUS**: You can drag BIOS files directly to `asus_tools.bat` to execute.
+**ASUS**: You can drag BIOS files directly to `batch\asus_tools.bat` to execute.
 
-**MSI**: Dragging MSI BIOS files (.bin) to `msi_tools.bat` will automatically process as follows:
+**MSI**: Dragging MSI BIOS files (.bin) to `batch\msi_tools.bat` will automatically process as follows:
 1. 🔍 **File Analysis**: MSI Packer structure analysis
 2. 📁 **Extract Folder Check**: Search for existing `msi_extracted/MSI_pack_folder/`
 3. 📦 **Structure-Preserving Repacking**: Regenerate with identical structure as original
@@ -139,6 +154,7 @@ Output file: original_bios_asus_repacked.bin
 ### Common Errors
 - **Module import error**: Check Python path settings
 - **File access error**: Check file permissions and paths
+- **Invalid file error**: Check that the selected file matches the target vendor's Packer format
 
 ### Debugging
 The program outputs detailed error messages and progress information. Check the output messages when issues occur.
@@ -148,9 +164,12 @@ The program outputs detailed error messages and progress information. Check the 
 ```
 UEFI-Binary-Tool/
 ├── asus_main.py           # ASUS main program (entry point)
-├── asus_tools.bat         # ASUS Windows batch execution script
 ├── msi_main.py            # MSI main program (entry point)
-├── msi_tools.bat          # MSI Windows batch execution script
+├── batch/                 # Windows batch execution scripts
+│   ├── _lang.bat          # Korean/English language resources for batch files
+│   ├── asus_tools.bat     # ASUS tool batch launcher
+│   ├── msi_tools.bat      # MSI tool batch launcher
+│   └── msi_tools_new.bat  # MSI compatibility launcher
 ├── asus/                  # ASUS related modules
 │   ├── analyzer/
 │   │   └── asus_analyzer.py    # ASUS BIOS file analyzer
@@ -162,7 +181,8 @@ UEFI-Binary-Tool/
 │   └── repacker/
 │       └── msi_repacker.py     # MSI image repacker
 └── common/                # Common utilities
-    └── file_utils.py      # File processing utilities
+    ├── binary_validation.py # ASUS/MSI binary format validation
+    └── file_utils.py        # File processing utilities
 ```
 
 ## 🤝 Contributing
@@ -172,5 +192,5 @@ Please register bug reports or feature suggestions as issues.
 ---
 
 **⚡ Quick Start**: 
-- **ASUS**: Run `asus_tools.bat` or drag BIOS files to `asus_tools.bat`!
-- **MSI**: Run `msi_tools.bat` or drag BIOS files to `msi_tools.bat`!
+- **ASUS**: Run `batch\asus_tools.bat` or drag BIOS files to `batch\asus_tools.bat`!
+- **MSI**: Run `batch\msi_tools.bat` or drag BIOS files to `batch\msi_tools.bat`!

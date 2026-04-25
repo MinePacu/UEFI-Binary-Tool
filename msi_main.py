@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-MSI BIOS Section Binary 분석/리패킹 메인 프로그램
+Main entry point for MSI BIOS Section Binary analysis/repack operations
 
-MSI 메인보드의 BIOS/UEFI Section 바이너리 파일을 분석하고 
-리패킹하는 통합 도구입니다. (추출 기능 제외)
+Analyzes MSI motherboard BIOS/UEFI Section binary files and 
+repackages images. Extraction is intentionally out of scope.
 """
 
 import os
@@ -12,41 +12,41 @@ import sys
 import argparse
 from typing import Optional
 
-# Windows 한글 출력 지원
+# Enable UTF-8 console output on Windows.
 if os.name == 'nt':  # Windows
     import locale
     try:
-        # Windows 콘솔 인코딩 설정
+        # Configure Windows console encoding.
         sys.stdout.reconfigure(encoding='utf-8')
         sys.stderr.reconfigure(encoding='utf-8')
     except:
-        # Python 3.6 이하 버전 호환
+        # Compatibility path for Python 3.6 and older.
         import codecs
         sys.stdout = codecs.getwriter('utf-8')(sys.stdout.detach())
         sys.stderr = codecs.getwriter('utf-8')(sys.stderr.detach())
 
-# 공통 모듈 import
+# Import shared modules.
 try:
     sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
     from common.file_utils import get_file_path, validate_file_path, create_output_filename
 except ImportError:
     print("[WARNING] 공통 모듈을 찾을 수 없습니다. 기본 기능만 사용합니다.")
 
-# MSI 모듈 import
+# Import MSI modules.
 from msi.analyzer.msi_analyzer import MSIFileAnalyzer
 from msi.repacker.msi_repacker import MSIImageRepacker
 
 
 class MSIMainController:
-    """MSI 도구 메인 컨트롤러"""
+    """Main controller for MSI tool workflows."""
     
     def __init__(self):
-        """초기화"""
+        """Initialize instance state."""
         self.analyzer = MSIFileAnalyzer()
         self.repacker = MSIImageRepacker()
         
     def run_interactive(self):
-        """대화형 모드 실행"""
+        """Run interactive mode."""
         print("=" * 60)
         print("     MSI BIOS Section Binary 분석/리패킹 도구")
         print("=" * 60)
@@ -78,44 +78,44 @@ class MSIMainController:
                 print(f"[ERROR] 처리 중 오류 발생: {e}")
     
     def _interactive_analyze(self):
-        """대화형 분석 모드"""
+        """Run interactive analysis mode."""
         print("\n=== MSI BIOS 파일 분석 ===")
         
         file_path = self._get_input_file("분석할 MSI BIOS 파일을 입력하세요")
         if not file_path:
             return
         
-        # 파일 분석
+        # Analyze the file.
         results = self.analyzer.analyze_file(file_path)
         
         if results:
-            # 리포트 저장 여부 확인
+            # Ask whether to save the report.
             save_report = input("\n분석 리포트를 저장하시겠습니까? (y/n): ").strip().lower()
             if save_report in ['y', 'yes']:
                 report_path = f"{os.path.splitext(file_path)[0]}_msi_analysis_report.txt"
                 self.analyzer.export_analysis_report(report_path)
     
     def _interactive_repack(self):
-        """대화형 리패킹 모드"""
+        """Run interactive repack mode."""
         print("\n=== MSI 이미지 리패킹 ===")
         
-        # 입력 디렉터리 확인
+        # Validate the input directory.
         input_dir = input("리패킹할 이미지 디렉터리를 입력하세요: ").strip()
         if not input_dir or not os.path.exists(input_dir):
             print("[ERROR] 유효한 디렉터리를 입력해주세요.")
             return
         
-        # 출력 파일 설정
+        # Resolve the output file name.
         default_output = f"{input_dir}_msi_repacked.bin"
         output_file = input(f"출력 파일명 ({default_output}): ").strip()
         if not output_file:
             output_file = default_output
         
-        # 원본 분석 결과 사용 여부
+        # Ask whether to use original analysis data.
         use_analysis = input("원본 분석 결과를 사용하시겠습니까? (y/n): ").strip().lower()
         
         if use_analysis in ['y', 'yes']:
-            # 원본 파일이 필요
+            # Original file is required for this path.
             original_file = input("원본 MSI BIOS 파일 경로를 입력하세요: ").strip()
             if original_file and os.path.exists(original_file):
                 print("원본 파일을 분석 중...")
@@ -129,24 +129,24 @@ class MSIMainController:
                 print("[ERROR] 유효한 원본 파일을 입력해주세요.")
                 return
         else:
-            # 일반 리패킹 (구조 보존 모드는 자동 감지)
+            # Run normal repack; structure-preservation mode is auto-detected.
             success = self.repacker.repack_from_directory(input_dir, output_file)
         
         if success:
             print(f"\n리패킹이 완료되었습니다: {output_file}")
             
-            # 리포트 저장
+            # Save the report.
             report_path = f"{os.path.splitext(output_file)[0]}_repack_report.txt"
             self.repacker.export_repack_report(report_path)
     
     def _get_input_file(self, prompt: str) -> Optional[str]:
-        """입력 파일 경로 획득"""
+        """Get an input file path."""
         try:
             file_path = get_file_path(prompt)
             if validate_file_path(file_path):
                 return file_path
         except:
-            # 공통 모듈이 없는 경우 직접 처리
+            # Fallback prompt when shared helpers are unavailable.
             file_path = input(f"{prompt}: ").strip()
             if file_path and os.path.exists(file_path):
                 return file_path
@@ -156,7 +156,7 @@ class MSIMainController:
         return None
     
     def run_full_process(self, file_path: str):
-        """드래그 앤 드롭용 통합 처리 (분석 + 리패킹)"""
+        """Integrated drag-and-drop workflow: analyze and repack."""
         print(f"[FULL PROCESS] MSI BIOS 파일 통합 처리")
         print("=" * 60)
         print(f"처리할 파일: {os.path.basename(file_path)}")
@@ -168,7 +168,7 @@ class MSIMainController:
             return
         
         try:
-            # 1단계: 파일 분석
+            # Step 1: analyze the file.
             print("🔍 1단계: MSI BIOS 파일 분석 중...")
             results = self.analyzer.analyze_file(file_path)
             
@@ -176,12 +176,12 @@ class MSIMainController:
                 print("[ERROR] MSI 엔트리를 찾을 수 없습니다. MSI 형식이 아닌 것 같습니다.")
                 return
             
-            # 2단계: 기존 추출된 폴더 찾기
+            # Step 2: locate an existing extracted folder.
             print("\n� 2단계: 추출된 이미지 폴더 확인 중...")
             current_dir = os.path.dirname(file_path) if os.path.dirname(file_path) else os.getcwd()
             default_extract_dir = os.path.join(current_dir, "msi_extracted")
             
-            # 기본 경로에 MSI_Pack 폴더가 있는지 확인
+            # Check whether the default path contains an MSI_Pack folder.
             if os.path.exists(default_extract_dir):
                 msi_pack_folders = [d for d in os.listdir(default_extract_dir) 
                                   if os.path.isdir(os.path.join(default_extract_dir, d)) and d.startswith("MSI_pack_")]
@@ -197,14 +197,14 @@ class MSIMainController:
                 print("MSI 파일을 먼저 추출해주세요 (별도의 추출 도구 사용)")
                 return
             
-            # 3단계: 원본 구조 유지 리패킹
+            # Step 3: repack while preserving original structure.
             print("\n📦 3단계: 원본 구조 유지 리패킹 중...")
             
-            # 리패킹된 파일명 생성
+            # Build the repacked output file name.
             base_name = os.path.splitext(os.path.basename(file_path))[0]
             repacked_file = os.path.join(current_dir, f"{base_name}_msi_repacked.bin")
             
-            # 구조 보존 리패킹 수행 (원본 분석 결과 전달)
+            # Run structure-preserving repack using original analysis data.
             repack_success = self.repacker.repack_from_directory(
                 extract_dir, repacked_file, original_analysis=results
             )
@@ -215,7 +215,7 @@ class MSIMainController:
                 print(f"사용된 추출 폴더: {extract_dir}")
                 print(f"리패킹 파일: {repacked_file}")
                 
-                # 분석 리포트 저장
+                # Save the analysis report.
                 report_path = os.path.join(current_dir, f"{base_name}_msi_analysis_report.txt")
                 self.analyzer.export_analysis_report(report_path)
                 
@@ -235,11 +235,11 @@ class MSIMainController:
             traceback.print_exc()
     
     def run_analyze(self, file_path: str = None):
-        """분석 모드 실행"""
+        """Run analysis mode."""
         print(f"[ANALYZE] MSI BIOS 파일 분석 모드")
         print("=" * 50)
         
-        # 파일 경로가 주어지지 않은 경우 대화형으로 입력받기
+        # Prompt interactively when no file path is provided.
         if not file_path:
             file_path = self._get_input_file("분석할 MSI BIOS 파일을 입력하세요")
             if not file_path:
@@ -249,21 +249,21 @@ class MSIMainController:
             print(f"[ERROR] 파일을 찾을 수 없습니다: {file_path}")
             return
         
-        # 파일 분석
+        # Analyze the file.
         results = self.analyzer.analyze_file(file_path)
         
         if results:
-            # 자동으로 리포트 저장
+            # Save the report automatically.
             report_path = f"{os.path.splitext(file_path)[0]}_msi_analysis_report.txt"
             self.analyzer.export_analysis_report(report_path)
             print(f"\n[INFO] 분석 리포트가 저장되었습니다: {report_path}")
     
     def run_repack(self, input_path: str = None):
-        """리패킹 모드 실행"""
+        """Run repack mode."""
         print(f"[REPACK] MSI 이미지 리패킹 모드")
         print("=" * 50)
         
-        # 입력 경로가 주어지지 않은 경우 대화형으로 입력받기
+        # Prompt interactively when no input path is provided.
         if not input_path:
             print("리패킹할 디렉터리를 선택하세요.")
             print("일반적으로 msi_extracted 폴더를 선택합니다.")
@@ -276,21 +276,24 @@ class MSIMainController:
             print(f"[ERROR] 경로를 찾을 수 없습니다: {input_path}")
             return
         
-        # 출력 파일 설정
+        # Resolve the output file name.
         if os.path.isdir(input_path):
             output_file = f"{input_path}_msi_repacked.bin"
         else:
             output_file = f"{os.path.splitext(input_path)[0]}_msi_repacked.bin"
         
-        # 디렉터리에서 리패킹
-        # 원본 파일 찾기 (변경 감지를 위해)
+        # Repack from a directory.
+        # Find the original file for change detection.
         original_file = self._find_original_file(input_path)
         original_analysis = None
         
         if original_file:
             print(f"원본 파일 발견: {original_file}")
-            # 원본 파일의 분석 결과도 로드
+            # Load analysis results for the original file.
             original_analysis = self.analyzer.analyze_file(original_file)
+            if not original_analysis:
+                print("[ERROR] 원본 파일이 유효한 MSI Packer 형식이 아니므로 리패킹을 중단합니다.")
+                return
             
         success = self.repacker.repack_from_directory(
             input_path, output_file, 
@@ -302,16 +305,16 @@ class MSIMainController:
         if success:
             print(f"\n[SUCCESS] 리패킹 완료: {output_file}")
             
-            # 리포트 저장
+            # Save the report.
             report_path = f"{os.path.splitext(output_file)[0]}_repack_report.txt"
             self.repacker.export_repack_report(report_path)
     
     def _find_original_file(self, input_path: str) -> str:
-        """리패킹 입력 경로를 기반으로 원본 파일을 찾기"""
+        """Find the original file from the repack input path."""
         if not os.path.isdir(input_path):
             return None
             
-        # msi_extracted 폴더인 경우 같은 디렉터리에서 .bin 파일 찾기
+        # If input is msi_extracted, look for a .bin file beside it.
         parent_dir = os.path.dirname(os.path.abspath(input_path))
         if not parent_dir or parent_dir == input_path:
             parent_dir = os.getcwd()
@@ -324,7 +327,7 @@ class MSIMainController:
                         if os.path.isfile(original_file):
                             return original_file
         
-        # MSI_pack 폴더가 있는 경우 상위 디렉터리에서 찾기
+        # If MSI_pack folders exist, look for the original in the parent directory.
         try:
             if any(d.startswith('MSI_pack') for d in os.listdir(input_path) if os.path.isdir(os.path.join(input_path, d))):
                 if os.path.exists(parent_dir):
@@ -340,15 +343,15 @@ class MSIMainController:
 
 
 def main():
-    """메인 함수"""
+    """Program entry point."""
     parser = argparse.ArgumentParser(
         description="MSI BIOS Section Binary 분석/리패킹 도구",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-사용 예시:
-  python msi_main.py                          # 대화형 모드
-  python msi_main.py analyze bios.bin         # BIOS 파일 분석
-  python msi_main.py repack extracted_dir/    # 이미지 리패킹
+Usage examples:
+  python msi_main.py                          # interactive mode
+  python msi_main.py analyze bios.bin         # analyze a BIOS file
+  python msi_main.py repack extracted_dir/    # repack images
         """
     )
     
@@ -371,15 +374,15 @@ def main():
         version='MSI BIOS 도구 v1.0.0'
     )
     
-    # 드래그 앤 드롭 지원
+    # Support drag-and-drop invocation.
     if len(sys.argv) == 2 and os.path.exists(sys.argv[1]):
-        # 파일이 드래그되어 실행된 경우
+        # A file was passed by drag and drop.
         file_path = sys.argv[1]
         print(f"드래그된 파일 감지: {file_path}")
         
         controller = MSIMainController()
         
-        # 파일 확장자에 따라 자동 모드 선택
+        # Choose mode automatically from file extension.
         if file_path.lower().endswith('.bin'):
             print("MSI BIOS 파일로 판단하여 통합 처리를 시작합니다...")
             controller.run_full_process(file_path)
@@ -395,13 +398,13 @@ def main():
     
     try:
         if not args.mode:
-            # 대화형 모드
+            # Run interactive mode.
             controller.run_interactive()
         elif args.mode == 'analyze':
-            # 메뉴 시스템에서 호출될 때는 input_path가 없을 수 있음
+            # Menu-driven calls may omit input_path.
             controller.run_analyze(args.input_path)
         elif args.mode == 'repack':
-            # 메뉴 시스템에서 호출될 때는 input_path가 없을 수 있음
+            # Menu-driven calls may omit input_path.
             controller.run_repack(args.input_path)
             
     except KeyboardInterrupt:

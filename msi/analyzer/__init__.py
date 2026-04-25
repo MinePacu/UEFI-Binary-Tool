@@ -1,7 +1,6 @@
-"""
-MSI 분석기 모듈 초기화
+"""MSI analyzer package.
 
-MSI BIOS 파일 분석 관련 클래스들을 포함합니다.
+Contains classes for MSI BIOS file analysis.
 """
 
 from .msi_analyzer import MSIFileAnalyzer, MSIHeader

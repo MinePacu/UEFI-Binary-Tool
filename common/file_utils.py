@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-공통 파일 유틸리티 모듈
-파일 경로 처리, 유효성 검사, 입출력 관련 공통 기능
+Common file utility module
+Shared helpers for file paths, validation, and basic I/O.
 """
 
 import os
@@ -10,7 +10,7 @@ import sys
 
 
 def get_file_path_input(prompt, default_path=None):
-    """사용자로부터 파일 경로를 입력받는 도우미 함수"""
+    """Prompt the user for a file path."""
     if default_path and os.path.exists(default_path):
         print(f"기본 파일: {os.path.basename(default_path)}")
         print(f"경로: {default_path}")
@@ -21,14 +21,19 @@ def get_file_path_input(prompt, default_path=None):
     else:
         file_path = input(f"{prompt}: ").strip()
     
-    # 따옴표 제거 (드래그 앤 드롭으로 입력한 경우)
+    # Strip quotes added by drag-and-drop input.
     file_path = file_path.strip('"').strip("'")
     
     return file_path
 
 
+def get_file_path(prompt, default_path=None):
+    """Compatibility alias for the existing MSI entry point."""
+    return get_file_path_input(prompt, default_path)
+
+
 def validate_file_path(file_path):
-    """파일 경로 유효성 검사"""
+    """Validate the file path."""
     if not file_path:
         print("오류: 파일 경로가 입력되지 않았습니다.")
         return False
@@ -48,13 +53,13 @@ def validate_file_path(file_path):
 
 
 def get_command_line_file():
-    """명령줄 인수에서 파일 경로 추출"""
+    """Extract a file path from command-line arguments."""
     if len(sys.argv) > 1:
-        # 드래그 앤 드롭으로 파일이 전달된 경우
+        # A file was provided by drag and drop.
         file_path = sys.argv[1].strip('"').strip("'")
         print(f"📁 전달된 파일: {os.path.basename(file_path)}")
         
-        # 파일 경로 유효성 검사
+        # Validate the file path.
         if not validate_file_path(file_path):
             return None
             
@@ -67,7 +72,7 @@ def get_command_line_file():
 
 
 def ensure_directory_exists(directory_path):
-    """디렉터리가 존재하지 않으면 생성"""
+    """Create the directory when it does not exist."""
     if not os.path.exists(directory_path):
         os.makedirs(directory_path)
         print(f"✓ 디렉터리 생성: {directory_path}")
@@ -75,7 +80,12 @@ def ensure_directory_exists(directory_path):
 
 
 def get_output_filename(base_path, suffix, extension=".bin"):
-    """출력 파일명 생성"""
+    """Build an output file name."""
     base_name = os.path.splitext(os.path.basename(base_path))[0]
     output_dir = os.path.dirname(base_path)
     return os.path.join(output_dir, f"{base_name}_{suffix}{extension}")
+
+
+def create_output_filename(base_path, suffix, extension=".bin"):
+    """Compatibility alias for existing output file name callers."""
+    return get_output_filename(base_path, suffix, extension)

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ASUS 이미지 리패커
-추출된 이미지를 다시 ASUS Packer 형식으로 재패키징
+ASUS image repacker
+Repackages extracted images back into ASUS Packer format.
 """
 
 import os
@@ -11,25 +11,33 @@ import binascii
 import struct
 from datetime import datetime
 
+from common.binary_validation import require_valid_vendor_binary
+
 
 class AsusImageRepacker:
+    """Repack modified images into an ASUS Packer binary while preserving original layout data."""
+
     def __init__(self, file_path):
+        """Initialize the repacker with the original ASUS binary path."""
         self.file_path = file_path
         self.file_size = os.path.getsize(file_path)
         self.data = None
         
     def load_file(self):
-        """파일을 메모리에 로드"""
+        """Load the file into memory."""
+        validation = require_valid_vendor_binary(self.file_path, "asus")
+        for detail in validation.details:
+            print(f"[VALID] {detail}")
         with open(self.file_path, 'rb') as f:
             self.data = f.read()
         print(f"원본 파일 로드 완료: {self.file_path}")
         print(f"파일 크기: {self.file_size:,} bytes ({self.file_size / 1024 / 1024:.2f} MB)")
     
     def detect_asus_packer_format(self):
-        """ASUS Packer 형식 감지"""
+        """Detect ASUS Packer format."""
         print("\n=== ASUS Packer 형식 감지 ===")
         
-        # ASUS Packer 시그니처 패턴
+        # ASUS Packer signature pattern.
         asus_pattern = re.compile(br'\x00\x00\x00\x00\x20\x00\x00\x00\xFF\xFF\x00\x00\xFF\xFF\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00')
         
         asus_packages = []
@@ -43,7 +51,7 @@ class AsusImageRepacker:
             start_match, end_match = match.span()
             print(f"ASUS Packer 패키지 발견: 오프셋 0x{start_match:08x}")
             
-            # 헤더 이후 이미지 메타데이터 파싱
+            # Parse image metadata after the header.
             head = end_match
             images = []
             image_nr = 0
@@ -52,7 +60,7 @@ class AsusImageRepacker:
                 if head + 8 > len(self.data):
                     break
                     
-                # 이미지 크기와 오프셋 읽기 (little-endian)
+                # Read image size and offset in little-endian format.
                 isize_bytes = self.data[head:head + 4]
                 ioffs_bytes = self.data[head + 4:head + 8]
                 
@@ -62,11 +70,11 @@ class AsusImageRepacker:
                 isize = struct.unpack('<I', isize_bytes)[0]
                 ioffs = struct.unpack('<I', ioffs_bytes)[0]
                 
-                # 유효성 검사
+                # Validate parsed values.
                 if isize == 0 or ioffs == 0:
                     break
                     
-                # 특별한 헤더 패턴 확인
+                # Check the special header pattern.
                 check_offset = head + ioffs - 0x10
                 if check_offset >= 0 and check_offset + 16 <= len(self.data):
                     check_pattern = self.data[check_offset:check_offset + 16]
@@ -74,19 +82,19 @@ class AsusImageRepacker:
                     if check_pattern != expected_pattern:
                         break
                 
-                # 이미지 데이터 위치
+                # Image data location.
                 img_start = head + ioffs
                 img_end = img_start + isize
                 
                 if img_end > len(self.data):
                     break
                     
-                # 이미지 타입 감지
+                # Detect the image type.
                 img_data = self.data[img_start:img_end]
                 img_type = self.detect_asus_image_type(img_data)
                 
                 image_nr += 1
-                # 원본 특별 패턴 24바이트 보존
+                # Preserve the original 24-byte special pattern.
                 special_pattern_start = head + 8
                 special_pattern = self.data[special_pattern_start:special_pattern_start + 24]
                 
@@ -105,7 +113,7 @@ class AsusImageRepacker:
                 
                 print(f"  이미지 #{image_nr}: {img_type}, 크기={isize}, 오프셋=0x{img_start:08x}")
                 
-                # 다음 메타데이터 위치로 이동 (정확한 32바이트 메타데이터 + 이미지 크기 + 4바이트 정렬)
+                # Move to the next metadata block: 32-byte metadata, image data, and 4-byte alignment.
                 next_metadata_pos = head + 32 + isize  # 32바이트 메타데이터 + 이미지 크기
                 padding = (4 - (isize % 4)) % 4
                 head = next_metadata_pos + padding
@@ -129,11 +137,11 @@ class AsusImageRepacker:
             return []
     
     def detect_asus_image_type(self, img_data):
-        """ASUS 이미지 타입 감지"""
+        """ASUS Detect the image type."""
         if len(img_data) < 4:
             return "img"
         
-        # 헤더 바이트를 헥스로 변환
+        # Convert header bytes to hex.
         header_hex = binascii.hexlify(img_data[:4]).decode('utf-8').upper()
         
         if header_hex[:4] == "424D":  # BM
@@ -150,7 +158,7 @@ class AsusImageRepacker:
             return "img"
     
     def _validate_image_replacement(self, original_image, new_data):
-        """이미지 교체 시 형식 검증"""
+        """Validate image type before replacement."""
         original_type = original_image['type']
         new_type = self.detect_asus_image_type(new_data)
         
@@ -161,14 +169,14 @@ class AsusImageRepacker:
         return True
     
     def rebuild_asus_packer_preserve_structure(self, extracted_dir, output_file=None):
-        """원본 구조를 최대한 보존하면서 수정된 이미지만 교체하는 ASUS Packer 재패키징"""
+        """Repackage ASUS Packer data while preserving structure and replacing modified images only."""
         print(f"\n=== ASUS Packer 원본 구조 보존 재패키징 ===")
         
         if not os.path.exists(extracted_dir):
             print(f"오류: 추출된 파일 디렉터리를 찾을 수 없습니다 - {extracted_dir}")
             return False
         
-        # 1. 원본 ASUS 패키지 구조 분석
+        # 1. Analyze the original ASUS package structure.
         print("1단계: 원본 ASUS 패키지 구조 분석...")
         original_packages = self.detect_asus_packer_format()
         
@@ -176,7 +184,7 @@ class AsusImageRepacker:
             print("오류: 원본 파일에서 ASUS 패키지를 찾을 수 없습니다.")
             return False
         
-        # 2. 수정된 이미지 파일 감지
+        # 2. Detect modified image files.
         print("2단계: 수정된 이미지 파일 감지...")
         modified_images = {}
         unchanged_count = 0
@@ -193,11 +201,11 @@ class AsusImageRepacker:
                 original_size = image['size']
                 original_data = image['data']
                 
-                # 추출된 파일 찾기
+                # Find the extracted file.
                 filename = f"image_nr{image['number']}_off0x{abs_offset:08x}.{image['type']}"
                 filepath = os.path.join(pkg_dir, filename)
                 
-                # 파일명 패턴 검증
+                # Validate file-name pattern.
                 import re
                 pattern = r'^image_nr(\d+)_off0x([0-9A-Fa-f]+)\.[a-zA-Z0-9]+$'
                 if not re.match(pattern, filename):
@@ -209,13 +217,13 @@ class AsusImageRepacker:
                     with open(filepath, 'rb') as f:
                         extracted_data = f.read()
                     
-                    # 이미지 형식 검증
+                    # Validate image type.
                     if not self._validate_image_replacement(image, extracted_data):
                         print(f"  ❌ 형식 불일치로 건너뛰기: {filename}")
                         unchanged_count += 1
                         continue
                     
-                    # 원본과 추출된 파일 비교
+                    # Compare original and extracted data.
                     if extracted_data == original_data:
                         unchanged_count += 1
                         print(f"  변경없음: 이미지 #{image['number']} ({len(extracted_data)} bytes)")
@@ -253,7 +261,7 @@ class AsusImageRepacker:
                 
                 return False
         
-        # 3. 크기 변화 분석
+        # 3. Analyze size changes.
         print("3단계: 크기 변화 분석...")
         total_size_change = sum(info['size_diff'] for info in modified_images.values())
         
@@ -267,14 +275,14 @@ class AsusImageRepacker:
             return self._structure_preserving_rebuild(original_packages, modified_images, output_file)
     
     def _direct_replace_images(self, modified_images, output_file):
-        """크기 변화가 없는 경우 바이트 단위 직접 교체"""
+        """Direct byte replacement when sizes do not change."""
         print("\n4단계: 바이트 단위 직접 교체...")
         
-        # 원본 데이터 전체 복사
+        # Copy all original data.
         new_data = bytearray(self.data)
         replaced_count = 0
         
-        # 오프셋 순으로 정렬하여 처리 (역순으로 처리하여 오프셋 변화 방지)
+        # Process offsets in reverse order so offsets do not shift.
         sorted_offsets = sorted(modified_images.keys(), reverse=True)
         
         for offset in sorted_offsets:
@@ -283,29 +291,29 @@ class AsusImageRepacker:
             new_image_data = info['new_data']
             original_size = original_image['size']
             
-            # 크기 검증
+            # Validate size.
             if len(new_image_data) != original_size:
                 print(f"  ❌ 크기 불일치로 건너뛰기: 오프셋 0x{offset:08x}")
                 continue
             
-            # 이미지 형식 재검증
+            # Revalidate image type.
             if not self._validate_image_replacement(original_image, new_image_data):
                 print(f"  ❌ 형식 불일치로 건너뛰기: 오프셋 0x{offset:08x}")
                 continue
             
-            # 원본 위치에 새 이미지 데이터 교체
+            # Replace image data at the original location.
             new_data[offset:offset + original_size] = new_image_data
             replaced_count += 1
             
             print(f"  ✅ 교체 완료: 오프셋 0x{offset:08x}, "
                   f"이미지 #{original_image['number']}, {len(new_image_data)} bytes")
         
-        # 출력 파일명 설정
+        # Resolve output file name.
         if output_file is None:
             base_name = os.path.splitext(self.file_path)[0]
             output_file = f"{base_name}_asus_preserved.bin"
         
-        # 파일 저장
+        # Write the output file.
         try:
             with open(output_file, 'wb') as f:
                 f.write(new_data)
@@ -324,7 +332,7 @@ class AsusImageRepacker:
             return False
     
     def _structure_preserving_rebuild(self, original_packages, modified_images, output_file):
-        """크기 변화가 있는 경우 구조를 최대한 보존하며 재구성"""
+        """Rebuild while preserving as much structure as possible when sizes change."""
         print("\n4단계: 원본 ASUS 구조 완전 복원...")
         
         new_data = bytearray()
@@ -334,64 +342,64 @@ class AsusImageRepacker:
         for pkg_idx, package in enumerate(original_packages, 1):
             print(f"\n  📦 패키지 {pkg_idx} 처리 중...")
             
-            # 패키지 시작 전의 모든 데이터 보존
+            # Preserve all data before the package.
             pkg_start = package['header_offset']
             if current_pos < pkg_start:
                 preserved_data = self.data[current_pos:pkg_start]
                 new_data.extend(preserved_data)
                 print(f"    📋 패키지 전 데이터 보존: {len(preserved_data)} bytes")
             
-            # 원본 ASUS 헤더 완전 보존 (32바이트)
+            # Preserve the original 32-byte ASUS header.
             header_end = package['header_end']
             original_header = self.data[pkg_start:header_end]
             new_data.extend(original_header)
             print(f"    🏷️ ASUS 헤더 보존: {len(original_header)} bytes")
             
-            # 원본 구조 완전 복원: 메타데이터와 이미지가 인터리브된 구조
+            # Rebuild the interleaved metadata/image structure.
             pkg_replaced_count = 0
             
-            # 원본 순서 유지를 위해 번호 순으로 정렬
+            # Sort by image number to preserve original order.
             sorted_images = sorted(package['images'], key=lambda x: x['number'])
             
             for img_info in sorted_images:
                 abs_offset = img_info['absolute_offset']
                 
-                # 수정된 이미지인지 확인
+                # Check whether the image was modified.
                 if abs_offset in modified_images:
-                    # 수정된 이미지 사용
+                    # Use modified image data.
                     img_data = modified_images[abs_offset]['new_data']
                     pkg_replaced_count += 1
                     total_replaced += 1
                     print(f"      🔄 교체: 이미지 #{img_info['number']} "
                           f"({img_info['size']} → {len(img_data)} bytes)")
                 else:
-                    # 원본 이미지 보존
+                    # Preserve original image data.
                     img_data = img_info['data']
                     print(f"      ✅ 보존: 이미지 #{img_info['number']} ({len(img_data)} bytes)")
                 
-                # **핵심 개선**: 원본 메타데이터 구조 완전 보존
-                # 4바이트: 이미지 크기 (업데이트된 크기)
+                # Key detail: preserve the original metadata structure.
+                # 4 bytes: updated image size.
                 size_bytes = struct.pack('<I', len(img_data))
                 new_data.extend(size_bytes)
                 
-                # 4바이트: 상대 오프셋 (고정 0x20)
+                # 4 bytes: relative offset, fixed at 0x20.
                 offset_bytes = struct.pack('<I', 0x20)
                 new_data.extend(offset_bytes)
                 
-                # **중요**: 원본 특별 패턴 24바이트를 그대로 보존
+                # Important: preserve the original 24-byte special pattern.
                 original_special_pattern = img_info.get('special_pattern')
                 if original_special_pattern and len(original_special_pattern) == 24:
                     new_data.extend(original_special_pattern)
                     print(f"        🔧 원본 특별 패턴 보존: 24 bytes")
                 else:
-                    # 원본 파일에서 직접 추출 (fallback)
+                    # Fallback: extract directly from the original file.
                     metadata_start = img_info['metadata_offset']
                     if metadata_start + 32 <= len(self.data):
                         original_special_pattern = self.data[metadata_start + 8:metadata_start + 32]
                         new_data.extend(original_special_pattern)
                         print(f"        🔧 원본 특별 패턴 추출 보존: 24 bytes")
                     else:
-                        # 최후의 수단: 기본 패턴 사용
+                        # Last resort: use the default pattern.
                         if img_info['number'] == 1:
                             special_pattern = bytes.fromhex("FFFF0A00FFFF004000000000300009040000000000000000")
                         else:
@@ -399,16 +407,16 @@ class AsusImageRepacker:
                         new_data.extend(special_pattern)
                         print(f"        ⚠️ 기본 특별 패턴 사용: 24 bytes")
                 
-                # 이미지 데이터 추가
+                # Append image data.
                 new_data.extend(img_data)
                 
-                # 원본과 동일한 4바이트 정렬 적용
+                # Apply the same 4-byte alignment as the original.
                 padding = (4 - (len(img_data) % 4)) % 4
                 if padding > 0:
                     new_data.extend(b'\x00' * padding)
                     print(f"        🔧 패딩 추가: {padding} bytes (4바이트 정렬)")
             
-            # 다음 패키지 시작 위치 업데이트
+            # Update the next package start position.
             current_pos = pkg_start + package['total_size']
             
             print(f"    📊 패키지 {pkg_idx} 완료:")
@@ -417,18 +425,18 @@ class AsusImageRepacker:
             print(f"      - 원본 특별 패턴 보존: ✅")
             print(f"      - 구조 복원: 메타데이터+원본패턴+이미지 인터리브")
         
-        # 마지막 패키지 이후의 모든 데이터 보존
+        # Preserve all data after the last package.
         if current_pos < len(self.data):
             remaining_data = self.data[current_pos:]
             new_data.extend(remaining_data)
             print(f"\n  📋 패키지 후 데이터 보존: {len(remaining_data)} bytes")
         
-        # 출력 파일명 설정
+        # Resolve output file name.
         if output_file is None:
             base_name = os.path.splitext(self.file_path)[0]
             output_file = f"{base_name}_asus_preserved.bin"
         
-        # 파일 저장
+        # Write the output file.
         try:
             with open(output_file, 'wb') as f:
                 f.write(new_data)
@@ -449,7 +457,7 @@ class AsusImageRepacker:
             return False
     
     def run_repack(self, extracted_dir, output_file=None):
-        """전체 리패킹 작업 실행"""
+        """Run the full repack workflow."""
         print("ASUS 이미지 리패킹을 시작합니다...")
         print("=" * 60)
         

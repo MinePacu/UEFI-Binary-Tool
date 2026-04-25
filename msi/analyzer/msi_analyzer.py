@@ -1,9 +1,9 @@
 """
-MSI BIOS 파일 분석기
+MSI BIOS file analyzer
 
-MSI 메인보드의 BIOS/UEFI Section 바이너리 파일을 분석하여
-MSI Packer 구조와 임베디드 이미지들을 분석합니다.
-분석 전용 도구로 추출 기능은 포함되지 않습니다.
+Analyzes MSI motherboard BIOS/UEFI Section binaries to inspect
+MSI Packer structures and embedded images.
+This analyzer does not implement extraction.
 """
 
 import os
@@ -14,7 +14,9 @@ from typing import List, Dict, Any, NamedTuple, Optional
 from collections import OrderedDict
 from datetime import datetime
 
-# Windows 한글 출력 지원
+from common.binary_validation import validate_msi_binary
+
+# Enable UTF-8 console output on Windows.
 if os.name == 'nt':  # Windows
     try:
         sys.stdout.reconfigure(encoding='utf-8')
@@ -26,24 +28,24 @@ if os.name == 'nt':  # Windows
 
 
 class MSIHeader(NamedTuple):
-    """MSI 헤더 구조체 (12 bytes)"""
-    signature: bytes      # 0x00-0x03: b'$MsI$' (4 bytes)
-    sector: int          # 0x04: Sector/Layer field (1 byte)
-    layer: int           # 0x05: Layer/Position field (1 byte) 
-    image_number: int    # 0x06: Image sequence number (1 byte)
-    reserved: int        # 0x07: Reserved field (1 byte)
-    image_size: int      # 0x08-0x0B: Image data size in bytes (4 bytes, little-endian)
+    """MSI header structure (13 bytes, b'$MsI$' signature + 8-byte metadata)"""
+    signature: bytes      # 0x00-0x04: b'$MsI$' (5 bytes)
+    sector: int           # 0x05: Sector/Layer field (1 byte)
+    layer: int            # 0x06: Layer/Position field (1 byte)
+    image_number: int     # 0x07: Image sequence number (1 byte)
+    reserved: int         # 0x08: Reserved field (1 byte)
+    image_size: int       # 0x09-0x0C: Image data size in bytes (4 bytes, little-endian)
 
 
 class MSIFileAnalyzer:
-    """MSI BIOS 파일 분석기 (분석 전용, 추출 기능 제외)"""
+    """MSI BIOS file analyzer; extraction is out of scope."""
     
     def __init__(self):
-        """초기화"""
+        """Initialize instance state."""
         self.MSI_SIGNATURE = b'$MsI$'
-        self.HEADER_SIZE = 12
+        self.HEADER_SIZE = len(self.MSI_SIGNATURE) + 8
         
-        # 매직 바이트 패턴 정의
+        # Known magic-byte patterns.
         self.magic_patterns = {
             b'$MsI$': 'MSI Packer Header',
             b'\xFF\xD8\xFF': 'JPEG Image Start',
@@ -55,23 +57,33 @@ class MSIFileAnalyzer:
             b'_FVH': 'UEFI Firmware Volume'
         }
         
-        # 분석 결과 저장
+        # Store the latest analysis results.
         self.analysis_results = {}
         
     def analyze_file(self, file_path: str) -> Dict[str, Any]:
-        """MSI 바이너리 파일 분석"""
+        """Analyze an MSI binary file."""
         try:
             print(f"\n=== MSI BIOS 파일 분석 시작 ===")
             print(f"분석할 파일: {os.path.basename(file_path)}")
+
+            validation = validate_msi_binary(file_path)
+            if not validation.is_valid:
+                print(f"[ERROR] 유효하지 않은 MSI 파일입니다: {validation.message}")
+                for detail in validation.details:
+                    print(f"  - {detail}")
+                return {}
+
+            for detail in validation.details:
+                print(f"[VALID] {detail}")
             
-            # 파일 읽기
+            # Read the file.
             with open(file_path, 'rb') as f:
                 data = f.read()
             
             file_size = len(data)
             print(f"파일 크기: {file_size:,} bytes ({file_size/1024:.2f} KB)")
             
-            # 기본 정보 수집
+            # Collect basic file metadata.
             results = {
                 'file_path': file_path,
                 'file_size': file_size,
@@ -81,16 +93,16 @@ class MSIFileAnalyzer:
                 'summary': {}
             }
             
-            # 매직 바이트 검색
+            # Search for magic-byte patterns.
             print(f"\n=== 매직 바이트 분석 ===")
             magic_bytes = self._find_magic_bytes(data)
             results['magic_bytes'] = magic_bytes
             
-            # MSI 시그니처 개수 확인
+            # Count MSI signatures.
             msi_signature_count = data.count(self.MSI_SIGNATURE)
             print(f"MSI 시그니처 '$MsI$' 발견 개수: {msi_signature_count}개")
             
-            # MSI 엔트리 검색 및 분석
+            # Find and parse MSI entries.
             print(f"\n=== MSI Packer 엔트리 분석 ===")
             if msi_signature_count == 0:
                 print("[WARNING] MSI Packer 시그니처를 찾을 수 없습니다.")
@@ -99,7 +111,7 @@ class MSIFileAnalyzer:
                 hex_dump = ' '.join(f'{b:02X}' for b in data[:64])
                 print(f"첫 64바이트: {hex_dump}")
                 
-                # 다른 가능한 시그니처들 확인
+                # Check other known signatures.
                 print("\n다른 알려진 패턴 검색 중...")
                 for pattern, desc in self.magic_patterns.items():
                     if pattern in data:
@@ -115,7 +127,7 @@ class MSIFileAnalyzer:
                 print("\n[INFO] 표준 MSI Packer 엔트리를 찾을 수 없습니다.")
                 print("대안 분석을 시도합니다...")
                 
-                # 대안 1: 알려진 이미지 시그니처 기반 분석  
+                # Fallback 1: scan for known image signatures.  
                 image_entries = self._find_embedded_images(data)
                 if image_entries:
                     print(f"[INFO] 임베디드 이미지 {len(image_entries)}개를 발견했습니다.")
@@ -123,18 +135,18 @@ class MSIFileAnalyzer:
                 else:
                     print("[WARNING] 이미지 데이터를 찾을 수 없습니다.")
                     
-                # 대안 2: 파일 형식 추정
+                # Fallback 2: guess the file format.
                 file_type = self._guess_file_format(data)
                 print(f"[INFO] 추정 파일 형식: {file_type}")
                 results['guessed_format'] = file_type
             else:
                 print(f"\n[SUCCESS] {len(msi_entries)}개의 MSI 엔트리를 발견했습니다.")
             
-            # 통계 생성
+            # Generate summary statistics.
             summary = self._generate_summary(results)
             results['summary'] = summary
             
-            # 결과 출력
+            # Print analysis results.
             self._print_analysis_results(results)
             
             self.analysis_results = results
@@ -145,7 +157,7 @@ class MSIFileAnalyzer:
             return {}
     
     def _find_magic_bytes(self, data: bytes) -> List[Dict[str, Any]]:
-        """매직 바이트 패턴 검색"""
+        """Search for magic-byte patterns."""
         magic_bytes = []
         
         for pattern, description in self.magic_patterns.items():
@@ -169,17 +181,17 @@ class MSIFileAnalyzer:
         return magic_bytes
     
     def _find_msi_entries(self, data: bytes) -> List[Dict[str, Any]]:
-        """MSI 엔트리 검색 및 분석"""
+        """Find and parse MSI entries."""
         entries = []
         offset = 0
         
         while offset < len(data) - self.HEADER_SIZE:
-            if data[offset:offset+4] == self.MSI_SIGNATURE:
+            if data[offset:offset+len(self.MSI_SIGNATURE)] == self.MSI_SIGNATURE:
                 try:
-                    # MSI 헤더 파싱
+                    # Parse the MSI header.
                     header = self._parse_msi_header(data, offset)
                     
-                    # 이미지 데이터 추출
+                    # Read the image payload range.
                     image_start = offset + self.HEADER_SIZE
                     image_end = image_start + header.image_size
                     
@@ -199,7 +211,7 @@ class MSIFileAnalyzer:
                         
                         print(f"MSI Entry #{len(entries)-1}: 오프셋 0x{offset:08X}, 크기 {header.image_size:,} bytes, 타입: {entry['image_type']}")
                         
-                        # 다음 엔트리로 점프
+                        # Jump to the next entry.
                         offset = image_end
                     else:
                         offset += 1
@@ -213,33 +225,34 @@ class MSIFileAnalyzer:
         return entries
     
     def _parse_msi_header(self, data: bytes, offset: int) -> MSIHeader:
-        """MSI 헤더 파싱"""
+        """Parse the MSI header."""
         if offset + self.HEADER_SIZE > len(data):
             raise ValueError(f"오프셋 {offset:#x}에서 헤더를 읽을 수 없습니다")
             
         header_data = data[offset:offset + self.HEADER_SIZE]
         
-        # 바이너리 언패킹
-        signature = header_data[0:4]
-        sector = header_data[4]
-        layer = header_data[5] 
-        image_number = header_data[6]
-        reserved = header_data[7]
-        image_size = struct.unpack('<I', header_data[8:12])[0]  # Little-endian
+        # Unpack binary header fields.
+        sig_len = len(self.MSI_SIGNATURE)
+        signature = header_data[0:sig_len]
+        sector = header_data[sig_len]
+        layer = header_data[sig_len + 1]
+        image_number = header_data[sig_len + 2]
+        reserved = header_data[sig_len + 3]
+        image_size = struct.unpack('<I', header_data[sig_len + 4:sig_len + 8])[0]  # Little-endian
         
         return MSIHeader(signature, sector, layer, image_number, reserved, image_size)
     
     def _detect_image_type(self, image_data: bytes) -> str:
-        """이미지 타입 감지"""
+        """Detect the image type."""
         if not image_data:
             return "Empty"
         
-        # 매직 바이트로 이미지 타입 감지
+        # Detect the image type from magic bytes.
         for magic, desc in self.magic_patterns.items():
             if image_data.startswith(magic):
                 return desc
         
-        # 추가 분석
+        # Run additional lightweight analysis.
         if len(image_data) >= 4:
             first_bytes = image_data[:4]
             return f"Unknown (시작: {first_bytes.hex().upper()})"
@@ -247,10 +260,10 @@ class MSIFileAnalyzer:
         return "Unknown"
     
     def _generate_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """분석 결과 요약 생성"""
+        """Build the analysis summary."""
         entries = results['msi_entries']
         
-        # 이미지 타입별 통계
+        # Collect per-image-type statistics.
         type_stats = {}
         total_image_size = 0
         
@@ -265,7 +278,7 @@ class MSIFileAnalyzer:
             type_stats[img_type]['total_size'] += size
             total_image_size += size
         
-        # 요약 정보
+        # Summary data.
         summary = {
             'total_entries': len(entries),
             'total_image_size': total_image_size,
@@ -277,7 +290,7 @@ class MSIFileAnalyzer:
         return summary
     
     def _print_analysis_results(self, results: Dict[str, Any]):
-        """분석 결과 출력"""
+        """Print analysis results."""
         summary = results['summary']
         
         print(f"\n=== 분석 결과 요약 ===")
@@ -294,11 +307,11 @@ class MSIFileAnalyzer:
             print(f"{img_type}: {count}개, {size:,} bytes ({percentage:.1f}%)")
     
     def _bytes_to_ascii(self, data: bytes) -> str:
-        """바이트를 ASCII 문자열로 변환 (출력 가능한 문자만)"""
+        """Convert bytes to printable ASCII."""
         return ''.join(chr(b) if 32 <= b <= 126 else '.' for b in data)
 
     def _find_embedded_images(self, data: bytes) -> List[Dict[str, Any]]:
-        """임베디드 이미지 검색 (MSI Packer가 아닌 경우의 대안)"""
+        """Search embedded images as a non-MSI fallback."""
         images = []
         image_patterns = {
             b'\xFF\xD8\xFF': 'JPEG',
@@ -314,7 +327,7 @@ class MSIFileAnalyzer:
                 if pos == -1:
                     break
                     
-                # 이미지 크기 추정 (간단한 휴리스틱)
+                # Estimate image size with a simple heuristic.
                 estimated_size = min(1024 * 1024, len(data) - pos)  # 최대 1MB
                 
                 image_info = {
@@ -331,11 +344,11 @@ class MSIFileAnalyzer:
         return images
 
     def _guess_file_format(self, data: bytes) -> str:
-        """파일 형식 추정"""
+        """Guess the file format."""
         if len(data) < 16:
             return "파일이 너무 작음"
             
-        # 시작 바이트 확인
+        # Inspect leading bytes.
         start_bytes = data[:16]
         
         if b'_FVH' in start_bytes:
@@ -354,7 +367,7 @@ class MSIFileAnalyzer:
             return "알 수 없는 형식"
     
     def export_analysis_report(self, output_path: str) -> bool:
-        """분석 결과를 텍스트 파일로 내보내기"""
+        """Export analysis results to a text file."""
         try:
             if not self.analysis_results:
                 print("[ERROR] 분석 결과가 없습니다. 먼저 analyze_file()을 실행하세요.")
@@ -366,13 +379,13 @@ class MSIFileAnalyzer:
                 f.write(f"분석 파일: {self.analysis_results['file_path']}\n")
                 f.write(f"파일 크기: {self.analysis_results['file_size']:,} bytes\n\n")
                 
-                # 매직 바이트 정보
+                # Magic-byte section.
                 f.write("=== 매직 바이트 패턴 ===\n")
                 for magic in self.analysis_results['magic_bytes']:
                     f.write(f"오프셋 0x{magic['offset']:08X}: {magic['pattern']} ({magic['description']})\n")
                 f.write("\n")
                 
-                # MSI 엔트리 정보
+                # MSI entry section.
                 f.write("=== MSI Packer 엔트리 ===\n")
                 for entry in self.analysis_results['msi_entries']:
                     f.write(f"Entry #{entry['index']}:\n")
@@ -384,7 +397,7 @@ class MSIFileAnalyzer:
                     f.write(f"  레이어: 0x{entry['header']['layer']:02X}\n")
                     f.write(f"  프리뷰: {entry['image_preview']}\n\n")
                 
-                # 요약 정보
+                # Summary data.
                 summary = self.analysis_results['summary']
                 f.write("=== 분석 요약 ===\n")
                 f.write(f"총 MSI 엔트리: {summary['total_entries']}개\n")
@@ -406,21 +419,21 @@ class MSIFileAnalyzer:
             return False
 
 if __name__ == "__main__":
-    # 테스트 코드
+    # Manual test harness.
     analyzer = MSIFileAnalyzer()
     
-    # 테스트 파일 경로 (실제 사용시 수정 필요)
+    # Test file path; update before manual use.
     test_file = r"C:\OtherProgram\bios_edit3\file_from_uefitool\b850_tomahwak\ext\Section_Raw_004D5349-2400-0000-55AA-55AA55AA55AA_MAG_Common_1920x1080.bin_body.bin"
     
     if os.path.exists(test_file):
         print("MSI 파일 분석기 테스트")
         print("=" * 50)
         
-        # 파일 분석
+        # Analyze the file.
         results = analyzer.analyze_file(test_file)
         
         if results:
-            # 리포트 저장
+            # Save the report.
             report_path = "msi_analysis_report.txt"
             analyzer.export_analysis_report(report_path)
             

@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ASUS 바이너리 파일 분석기
-ASUS BIOS/UEFI 파일의 구조 분석 및 매직 바이트 감지
+ASUS binary file analyzer
+Analyzes ASUS BIOS/UEFI file structure and detects magic bytes.
 """
 
 import os
@@ -14,23 +14,26 @@ from datetime import datetime
 
 
 class AsusFileAnalyzer:
+    """Analyze ASUS BIOS/UEFI binaries and collect structure, pattern, and embedded-file data."""
+
     def __init__(self, file_path):
+        """Initialize the analyzer with the target ASUS binary path."""
         self.file_path = file_path
         self.file_size = os.path.getsize(file_path)
         self.data = None
         
     def load_file(self):
-        """파일을 메모리에 로드"""
+        """Load the file into memory."""
         with open(self.file_path, 'rb') as f:
             self.data = f.read()
         print(f"파일 로드 완료: {self.file_path}")
         print(f"파일 크기: {self.file_size:,} bytes ({self.file_size / 1024 / 1024:.2f} MB)")
         
     def analyze_magic_bytes(self):
-        """매직 바이트 패턴 분석"""
+        """Analyze magic-byte patterns."""
         print("\n=== 매직 바이트 분석 ===")
         
-        # 알려진 매직 바이트 패턴들
+        # Known magic-byte patterns.
         magic_patterns = {
             b'MZ': 'PE/DOS Executable',
             b'PE\x00\x00': 'PE Header',
@@ -50,7 +53,7 @@ class AsusFileAnalyzer:
             b'\x12\x34\x56\x78': 'Big Endian Magic',
         }
         
-        # 파일 시작 부분의 매직 바이트 확인
+        # Check magic bytes at the start of the file.
         found_magic = []
         for length in [2, 3, 4, 8, 16]:
             if len(self.data) >= length:
@@ -60,7 +63,7 @@ class AsusFileAnalyzer:
                         print(f"매직 바이트 발견: {binascii.hexlify(magic).decode()} - {description}")
                         found_magic.append((magic, description))
         
-        # 매직 바이트 패턴 빈도 분석
+        # Analyze magic-byte pattern frequency.
         print(f"\n=== 매직 패턴 빈도 분석 ===")
         magic_frequency = []
         
@@ -79,7 +82,7 @@ class AsusFileAnalyzer:
             for desc, count, freq in magic_frequency[:5]:  # 상위 5개만 표시
                 print(f"{desc:<25} {count:>6} {freq:>10}")
         
-        # 헥스 덤프 (처음 64바이트)
+        # Hex dump of the first 64 bytes.
         print(f"\n파일 시작 64바이트 헥스 덤프:")
         hex_data = binascii.hexlify(self.data[:64]).decode()
         for i in range(0, len(hex_data), 32):
@@ -90,10 +93,10 @@ class AsusFileAnalyzer:
             print(f"{offset:08x}: {formatted_hex:<47} |{ascii_data}|")
     
     def find_patterns(self):
-        """파일 내에서 반복되는 패턴 찾기"""
+        """Find repeated patterns in the file."""
         print("\n=== 패턴 분석 ===")
         
-        # 특정 패턴들 검색
+        # Search for selected patterns.
         patterns = {
             b'\x00' * 16: '16바이트 NULL 패턴',
             b'\xff' * 16: '16바이트 0xFF 패턴',
@@ -113,7 +116,7 @@ class AsusFileAnalyzer:
             b'IEND': 'PNG 종료 마커',
         }
         
-        # 패턴 빈도 통계
+        # Pattern frequency statistics.
         pattern_stats = []
         
         for pattern, description in patterns.items():
@@ -139,7 +142,7 @@ class AsusFileAnalyzer:
                 
                 pattern_stats.append((description, count, density_per_kb, percentage_of_file))
         
-        # 빈도 통계 요약
+        # Frequency summary.
         if pattern_stats:
             print(f"\n=== 패턴 빈도 요약 (상위 5개) ===")
             pattern_stats.sort(key=lambda x: x[1], reverse=True)  # 개수로 정렬
@@ -149,19 +152,19 @@ class AsusFileAnalyzer:
                 print(f"{desc:<20} {count:>8} {density:>10} {percentage:>8}")
     
     def analyze_embedded_files(self):
-        """임베디드 파일 분석"""
+        """Analyze embedded files."""
         print("\n=== 임베디드 파일 분석 ===")
         
         embedded_files = []
         
-        # PNG 파일 찾기
+        # Find PNG files.
         png_start = 0
         while True:
             png_pos = self.data.find(b'\x89PNG\r\n\x1a\n', png_start)
             if png_pos == -1:
                 break
             
-            # PNG 끝 찾기 (IEND 청크)
+            # Find PNG end marker using the IEND chunk.
             iend_pos = self.data.find(b'IEND\xaeB`\x82', png_pos)
             if iend_pos != -1:
                 png_size = iend_pos + 8 - png_pos
@@ -173,14 +176,14 @@ class AsusFileAnalyzer:
                 })
             png_start = png_pos + 1
         
-        # JPEG 파일 찾기
+        # Find JPEG files.
         jpeg_start = 0
         while True:
             jpeg_pos = self.data.find(b'\xff\xd8\xff', jpeg_start)
             if jpeg_pos == -1:
                 break
             
-            # JPEG 끝 찾기 (FFD9)
+            # Find JPEG end marker FFD9.
             search_pos = jpeg_pos + 3
             jpeg_end = -1
             while search_pos < len(self.data) - 1:
@@ -199,20 +202,20 @@ class AsusFileAnalyzer:
                 })
             jpeg_start = jpeg_pos + 1
         
-        # BMP 파일 찾기
+        # Find BMP files.
         bmp_start = 0
         while True:
             bmp_pos = self.data.find(b'BM', bmp_start)
             if bmp_pos == -1:
                 break
             
-            # BMP 헤더에서 파일 크기 읽기
+            # Read file size from the BMP header.
             if bmp_pos + 6 <= len(self.data):
                 try:
                     bmp_size_bytes = self.data[bmp_pos + 2:bmp_pos + 6]
                     bmp_size = struct.unpack('<I', bmp_size_bytes)[0]
                     
-                    # 합리적인 크기 범위 확인
+                    # Check a reasonable size range.
                     if 100 <= bmp_size <= 50 * 1024 * 1024 and bmp_pos + bmp_size <= len(self.data):
                         embedded_files.append({
                             'type': 'BMP Image',
@@ -224,7 +227,7 @@ class AsusFileAnalyzer:
                     pass
             bmp_start = bmp_pos + 1
         
-        # 발견된 임베디드 파일들 출력
+        # Print discovered embedded files.
         if embedded_files:
             print("발견된 임베디드 파일들:")
             for i, file_info in enumerate(embedded_files, 1):
@@ -232,39 +235,39 @@ class AsusFileAnalyzer:
                 print(f"     위치: 0x{file_info['start']:08x} - 0x{file_info['end']:08x}")
                 print(f"     크기: {file_info['size']:,} bytes ({file_info['size']/1024:.1f} KB)")
                 
-                # PNG인 경우 추가 정보 추출
+                # Extract additional data for PNG files.
                 if file_info['type'] == 'PNG Image':
                     self.analyze_png_details(file_info['start'])
-                # BMP인 경우 추가 정보 추출
+                # Extract additional data for BMP files.
                 elif file_info['type'] == 'BMP Image':
                     self.analyze_bmp_details(file_info['start'])
         else:
             print("임베디드 파일이 발견되지 않았습니다.")
     
     def analyze_png_details(self, png_start):
-        """PNG 파일의 세부 정보 분석"""
+        """Analyze PNG details."""
         try:
-            # IHDR 청크에서 이미지 정보 추출
+            # Extract image details from the IHDR chunk.
             ihdr_pos = self.data.find(b'IHDR', png_start)
             if ihdr_pos != -1:
-                # IHDR 데이터는 IHDR 문자열 바로 다음 13바이트
+                # IHDR data is the 13 bytes after the IHDR marker.
                 ihdr_data = self.data[ihdr_pos + 4:ihdr_pos + 17]
                 if len(ihdr_data) >= 13:
                     width, height, bit_depth, color_type = struct.unpack('>IIBBB', ihdr_data[:9])
                     print(f"       PNG 정보: {width}x{height}, {bit_depth}bit, 컬러타입={color_type}")
             
-            # 텍스트 청크 찾기
+            # Find text chunks.
             text_chunks = [b'tEXt', b'iTXt', b'zTXt']
             for chunk_type in text_chunks:
                 chunk_pos = self.data.find(chunk_type, png_start)
                 if chunk_pos != -1:
-                    # 청크 길이 읽기 (청크 타입 4바이트 전)
+                    # Read chunk length from the 4 bytes before the chunk type.
                     length_data = self.data[chunk_pos-4:chunk_pos]
                     if len(length_data) == 4:
                         chunk_length = struct.unpack('>I', length_data)[0]
                         if chunk_length < 1000:  # 합리적인 크기 제한
                             text_data = self.data[chunk_pos+4:chunk_pos+4+chunk_length]
-                            # 인쇄 가능한 문자만 추출
+                            # Extract printable characters only.
                             readable_text = ''.join(chr(b) if 32 <= b <= 126 else ' ' for b in text_data[:100])
                             print(f"       텍스트 정보: {readable_text.strip()}")
                             break
@@ -272,15 +275,15 @@ class AsusFileAnalyzer:
             pass
     
     def analyze_bmp_details(self, bmp_start):
-        """BMP 파일의 세부 정보 분석"""
+        """Analyze BMP details."""
         try:
-            # BMP 헤더 분석 (최소 54바이트 필요)
+            # Analyze BMP header; at least 54 bytes are required.
             if bmp_start + 54 <= len(self.data):
-                # BMP 파일 헤더 (14바이트)
+                # BMP file header, 14 bytes.
                 file_size = struct.unpack('<I', self.data[bmp_start + 2:bmp_start + 6])[0]
                 data_offset = struct.unpack('<I', self.data[bmp_start + 10:bmp_start + 14])[0]
                 
-                # DIB 헤더 (최소 40바이트)
+                # DIB header, at least 40 bytes.
                 dib_header_size = struct.unpack('<I', self.data[bmp_start + 14:bmp_start + 18])[0]
                 
                 if dib_header_size >= 40:  # BITMAPINFOHEADER 또는 더 큰 헤더
@@ -290,7 +293,7 @@ class AsusFileAnalyzer:
                     bit_count = struct.unpack('<H', self.data[bmp_start + 28:bmp_start + 30])[0]
                     compression = struct.unpack('<I', self.data[bmp_start + 30:bmp_start + 34])[0]
                     
-                    # 압축 타입 해석
+                    # Decode compression type.
                     compression_types = {
                         0: 'BI_RGB (무압축)',
                         1: 'BI_RLE8',
@@ -306,7 +309,7 @@ class AsusFileAnalyzer:
             pass
     
     def analyze_entropy(self, block_size=1024):
-        """엔트로피 분석으로 압축/암호화 영역 감지"""
+        """Use entropy analysis to detect compressed or encrypted regions."""
         print(f"\n=== 엔트로피 분석 (블록 크기: {block_size}바이트) ===")
         
         import math
@@ -319,19 +322,19 @@ class AsusFileAnalyzer:
             if len(block) < block_size // 2:  # 너무 작은 블록은 건너뛰기
                 continue
                 
-            # 바이트 빈도 계산
+            # Count byte frequencies.
             byte_counts = defaultdict(int)
             for byte in block:
                 byte_counts[byte] += 1
             
-            # 엔트로피 계산
+            # Calculate entropy.
             entropy = 0
             for count in byte_counts.values():
                 p = count / len(block)
                 if p > 0:
                     entropy -= p * math.log2(p)
             
-            # 높은 엔트로피 (압축/암호화 가능성) 또는 낮은 엔트로피 (반복 패턴) 블록 기록
+            # Record high-entropy and low-entropy blocks.
             if entropy > 7.5:
                 high_entropy_blocks.append((i, entropy))
             elif entropy < 2.0:
@@ -348,10 +351,10 @@ class AsusFileAnalyzer:
                 print(f"  오프셋 0x{offset:08x}: 엔트로피 {entropy:.2f}")
     
     def analyze_structure(self):
-        """파일 구조 분석"""
+        """Analyze file structure."""
         print("\n=== 구조 분석 ===")
         
-        # 32비트/64비트 정렬 확인
+        # Check 32-bit and 64-bit alignment.
         null_sequences = []
         i = 0
         while i < len(self.data) - 4:
@@ -368,14 +371,14 @@ class AsusFileAnalyzer:
             for start, length in null_sequences[:10]:  # 최대 10개만 표시
                 print(f"  오프셋 0x{start:08x}: {length}바이트")
         
-        # 16바이트 정렬 구조 확인 (UEFI에서 일반적)
+        # Check 16-byte alignment, which is common in UEFI.
         aligned_positions = []
         for i in range(0, len(self.data), 16):
             if i + 16 <= len(self.data):
                 block = self.data[i:i+16]
-                # 특별한 패턴이나 헤더 같은 구조 확인
+                # Look for blocks that resemble structured headers.
                 if not all(b == 0 for b in block) and not all(b == 0xff for b in block):
-                    # 인쇄 가능한 문자가 있는지 확인
+                    # Check whether printable characters are present.
                     printable_count = sum(1 for b in block if 32 <= b <= 126)
                     if printable_count >= 4:  # 최소 4개의 인쇄 가능한 문자
                         aligned_positions.append(i)
@@ -388,7 +391,7 @@ class AsusFileAnalyzer:
                 print(f"  오프셋 0x{pos:08x}: {text}")
     
     def generate_summary(self):
-        """분석 결과 요약"""
+        """Summarize analysis results."""
         print("\n" + "="*60)
         print("=== 파일 분석 요약 ===")
         print("="*60)
@@ -396,12 +399,12 @@ class AsusFileAnalyzer:
         print(f"파일명: {os.path.basename(self.file_path)}")
         print(f"크기: {self.file_size:,} bytes ({self.file_size / 1024 / 1024:.2f} MB)")
         
-        # 파일 확장자 기반 추정
+        # Guess file type from extension.
         if 'Section_Raw' in self.file_path and '.bin' in self.file_path:
             print("파일 유형: UEFI 펌웨어 섹션 추출 파일")
             print("예상 내용: UEFI 모듈, 드라이버, 또는 설정 데이터")
         
-        # 바이트 분포 통계
+        # Byte distribution statistics.
         byte_counts = defaultdict(int)
         for byte in self.data[:min(10000, len(self.data))]:  # 처음 10KB만 분석
             byte_counts[byte] += 1
@@ -413,7 +416,7 @@ class AsusFileAnalyzer:
             print(f"  0x{byte_val:02x} ({byte_val}): {count}회 ({percentage:.1f}%)")
     
     def collect_analysis_data(self):
-        """분석 데이터를 수집하여 딕셔너리로 반환"""
+        """Collect analysis data into a dictionary."""
         from datetime import datetime
         import math
         
@@ -441,7 +444,7 @@ class AsusFileAnalyzer:
             'byte_statistics': {}
         }
         
-        # 매직 바이트 분석
+        # Magic-byte analysis.
         magic_patterns = {
             b'MZ': 'PE/DOS Executable',
             b'PE\x00\x00': 'PE Header',
@@ -457,7 +460,7 @@ class AsusFileAnalyzer:
             b'$FV$': 'UEFI Firmware Volume Signature'
         }
         
-        # 매직 바이트 패턴 빈도 수집
+        # Collect magic-byte pattern frequencies.
         for magic_bytes, description in magic_patterns.items():
             count = self.data.count(magic_bytes)
             if count > 0:
@@ -477,7 +480,7 @@ class AsusFileAnalyzer:
                             'description': description
                         })
         
-        # 패턴 분석
+        # Pattern analysis.
         patterns = {
             b'UEFI': 'UEFI 문자열',
             b'BIOS': 'BIOS 문자열',
@@ -497,7 +500,7 @@ class AsusFileAnalyzer:
             b'IEND': 'PNG 종료 마커'
         }
         
-        # 패턴 빈도 통계 수집
+        # Collect pattern frequency statistics.
         for pattern, description in patterns.items():
             count = self.data.count(pattern)
             analysis_data['pattern_frequency'][description] = {
@@ -524,10 +527,10 @@ class AsusFileAnalyzer:
                     'positions': positions
                 }
         
-        # 임베디드 파일 분석 (모든 파일 타입을 통합하여 위치 순서대로 정렬)
+        # Collect embedded files across all file types and sort them by position.
         embedded_files = []
         
-        # PNG 파일 찾기
+        # Find PNG files.
         png_start = 0
         while True:
             png_pos = self.data.find(b'\x89PNG\r\n\x1a\n', png_start)
@@ -538,7 +541,7 @@ class AsusFileAnalyzer:
             if iend_pos != -1:
                 png_size = iend_pos + 8 - png_pos
                 
-                # PNG 세부 정보 추출
+                # Extract PNG detail fields.
                 png_info = {
                     'type': 'PNG Image',
                     'start_pos': png_pos,  # 정렬용 숫자 위치
@@ -548,7 +551,7 @@ class AsusFileAnalyzer:
                     'size_kb': round(png_size / 1024, 1)
                 }
                 
-                # PNG 헤더 정보 추출
+                # Extract PNG header fields.
                 try:
                     ihdr_pos = self.data.find(b'IHDR', png_pos)
                     if ihdr_pos != -1:
@@ -565,7 +568,7 @@ class AsusFileAnalyzer:
                 embedded_files.append(png_info)
             png_start = png_pos + 1
         
-        # BMP 파일 분석
+        # BMP Analyze the file.
         bmp_start = 0
         while True:
             bmp_pos = self.data.find(b'BM', bmp_start)
@@ -578,7 +581,7 @@ class AsusFileAnalyzer:
                     bmp_size = struct.unpack('<I', bmp_size_bytes)[0]
                     
                     if 100 <= bmp_size <= 50 * 1024 * 1024 and bmp_pos + bmp_size <= len(self.data):
-                        # BMP 세부 정보 추출
+                        # Extract BMP detail fields.
                         bmp_info = {
                             'type': 'BMP Image',
                             'start_pos': bmp_pos,  # 정렬용 숫자 위치
@@ -588,7 +591,7 @@ class AsusFileAnalyzer:
                             'size_kb': round(bmp_size / 1024, 1)
                         }
                         
-                        # BMP 헤더 정보 추출
+                        # Extract BMP header fields.
                         try:
                             if bmp_pos + 54 <= len(self.data):
                                 dib_header_size = struct.unpack('<I', self.data[bmp_pos + 14:bmp_pos + 18])[0]
@@ -607,14 +610,14 @@ class AsusFileAnalyzer:
                     pass
             bmp_start = bmp_pos + 1
         
-        # JPEG 파일 분석
+        # JPEG Analyze the file.
         jpeg_start = 0
         while True:
             jpeg_pos = self.data.find(b'\xff\xd8\xff', jpeg_start)
             if jpeg_pos == -1:
                 break
             
-            # JPEG 끝 찾기 (FFD9)
+            # Find JPEG end marker FFD9.
             search_pos = jpeg_pos + 3
             jpeg_end = -1
             while search_pos < len(self.data) - 1:
@@ -626,7 +629,7 @@ class AsusFileAnalyzer:
             if jpeg_end != -1:
                 jpeg_size = jpeg_end - jpeg_pos
                 
-                # JPEG 세부 정보 추출
+                # Extract JPEG detail fields.
                 jpeg_info = {
                     'type': 'JPEG Image',
                     'start_pos': jpeg_pos,  # 정렬용 숫자 위치
@@ -636,9 +639,9 @@ class AsusFileAnalyzer:
                     'size_kb': round(jpeg_size / 1024, 1)
                 }
                 
-                # JPEG 헤더 정보 추출
+                # Extract JPEG header fields.
                 try:
-                    # JFIF 헤더 확인
+                    # Check the JFIF header.
                     if jpeg_pos + 20 <= len(self.data):
                         if b'JFIF' in self.data[jpeg_pos:jpeg_pos+20]:
                             jfif_pos = self.data.find(b'JFIF', jpeg_pos)
@@ -651,7 +654,7 @@ class AsusFileAnalyzer:
                                 jpeg_info['jfif_version'] = f"{version_major}.{version_minor}"
                                 jpeg_info['density'] = f"{x_density}x{y_density}"
                     
-                    # SOF 마커에서 이미지 크기 정보 추출
+                    # Extract image dimensions from SOF markers.
                     sof_markers = [b'\xff\xc0', b'\xff\xc1', b'\xff\xc2']  # SOF0, SOF1, SOF2
                     for sof_marker in sof_markers:
                         sof_pos = self.data.find(sof_marker, jpeg_pos)
@@ -671,16 +674,16 @@ class AsusFileAnalyzer:
                 embedded_files.append(jpeg_info)
             jpeg_start = jpeg_pos + 1
         
-        # 모든 임베디드 파일을 위치 순서대로 정렬
+        # Sort embedded files by position.
         embedded_files.sort(key=lambda x: x['start_pos'])
         
-        # start_pos 필드 제거 (정렬에만 사용)
+        # Remove start_pos after sorting.
         for file_info in embedded_files:
             del file_info['start_pos']
         
         analysis_data['embedded_files'] = embedded_files
         
-        # 엔트로피 분석
+        # Entropy analysis.
         block_size = 1024
         for i in range(0, len(self.data), block_size):
             block = self.data[i:i+block_size]
@@ -708,7 +711,7 @@ class AsusFileAnalyzer:
                     'entropy': round(entropy, 2)
                 })
         
-        # 구조 분석 - NULL 시퀀스
+        # Structure analysis: NULL sequences.
         null_sequences = []
         i = 0
         while i < len(self.data) - 4:
@@ -724,7 +727,7 @@ class AsusFileAnalyzer:
                 i += 1
         analysis_data['structure_analysis']['null_sequences'] = null_sequences[:10]
         
-        # 바이트 통계
+        # Byte statistics.
         byte_counts = defaultdict(int)
         for byte in self.data[:min(10000, len(self.data))]:
             byte_counts[byte] += 1
@@ -740,7 +743,7 @@ class AsusFileAnalyzer:
         return analysis_data
     
     def save_analysis_results_txt(self, output_file=None):
-        """분석 결과를 TXT 파일로 저장"""
+        """Save analysis results as a TXT file."""
         if output_file is None:
             base_name = os.path.splitext(self.file_path)[0]
             output_file = f"{base_name}_analysis.txt"
@@ -753,13 +756,13 @@ class AsusFileAnalyzer:
                 f.write("바이너리 파일 분석 보고서\n")
                 f.write("="*80 + "\n\n")
                 
-                # 기본 정보
+                # Basic information.
                 f.write(f"분석 일시: {analysis_data['timestamp']}\n")
                 f.write(f"파일명: {analysis_data['file_info']['filename']}\n")
                 f.write(f"파일 경로: {analysis_data['file_info']['filepath']}\n")
                 f.write(f"파일 크기: {analysis_data['file_info']['size_bytes']:,} bytes ({analysis_data['file_info']['size_mb']} MB)\n\n")
                 
-                # 매직 바이트
+                # Magic bytes.
                 if analysis_data['magic_bytes']:
                     f.write("매직 바이트 분석\n")
                     f.write("-" * 40 + "\n")
@@ -767,7 +770,7 @@ class AsusFileAnalyzer:
                         f.write(f"  {magic['bytes']}: {magic['description']}\n")
                     f.write("\n")
                 
-                # 매직 패턴 빈도
+                # Magic pattern frequency.
                 if analysis_data['magic_pattern_frequency']:
                     f.write("매직 패턴 빈도 분석\n")
                     f.write("-" * 40 + "\n")
@@ -775,7 +778,7 @@ class AsusFileAnalyzer:
                         f.write(f"  {pattern_hex} ({info['description']}): {info['count']}개 ({info['frequency_per_mb']}/MB)\n")
                     f.write("\n")
                 
-                # 패턴 분석
+                # Pattern analysis.
                 if analysis_data['patterns']:
                     f.write("패턴 분석\n")
                     f.write("-" * 40 + "\n")
@@ -786,7 +789,7 @@ class AsusFileAnalyzer:
                             f.write(f"    (총 {info['count']}개, 처음 5개만 표시)\n")
                     f.write("\n")
                 
-                # 패턴 빈도 통계
+                # Pattern frequency statistics.
                 if analysis_data['pattern_frequency']:
                     f.write("패턴 빈도 통계\n")
                     f.write("-" * 40 + "\n")
@@ -797,7 +800,7 @@ class AsusFileAnalyzer:
                             f.write(f"{description:<20} | {info['count']:>8} | {info['density_per_kb']:>8} | {info['percentage_of_file']:>6}\n")
                     f.write("\n")
                 
-                # 임베디드 파일
+                # Embedded files.
                 if analysis_data['embedded_files']:
                     f.write("임베디드 파일 분석\n")
                     f.write("-" * 40 + "\n")
@@ -814,7 +817,7 @@ class AsusFileAnalyzer:
                                 f.write(f"     이미지 정보: {file_info['width']}x{file_info['height']}, {file_info['bit_depth']}bit\n")
                     f.write("\n")
                 
-                # 엔트로피 분석
+                # Entropy analysis.
                 f.write("엔트로피 분석\n")
                 f.write("-" * 40 + "\n")
                 if analysis_data['entropy_analysis']['high_entropy']:
@@ -828,7 +831,7 @@ class AsusFileAnalyzer:
                         f.write(f"  오프셋 {entry['offset']}: 엔트로피 {entry['entropy']}\n")
                 f.write("\n")
                 
-                # 구조 분석
+                # Structure analysis.
                 if analysis_data['structure_analysis']['null_sequences']:
                     f.write("구조 분석\n")
                     f.write("-" * 40 + "\n")
@@ -837,7 +840,7 @@ class AsusFileAnalyzer:
                         f.write(f"  오프셋 {seq['offset']}: {seq['length']}바이트\n")
                     f.write("\n")
                 
-                # 바이트 통계
+                # Byte statistics.
                 if analysis_data['byte_statistics']:
                     f.write("바이트 통계 (처음 10KB 기준)\n")
                     f.write("-" * 40 + "\n")
@@ -856,13 +859,13 @@ class AsusFileAnalyzer:
             return False
     
     def save_analysis_results_md(self, output_file=None):
-        """분석 결과를 마크다운 파일로 저장 (원본 파일과 같은 디렉터리에 생성)"""
+        """Save analysis results as Markdown beside the original file."""
         if output_file is None:
-            # 원본 파일의 디렉터리와 파일명 분리
+            # Split the original directory and base file name.
             original_dir = os.path.dirname(self.file_path)
             original_name = os.path.splitext(os.path.basename(self.file_path))[0]
             
-            # 원본 파일 디렉터리에 MD 파일 생성
+            # Create the Markdown report beside the original file.
             output_file = os.path.join(original_dir, f"{original_name}_analysis.md")
         
         try:
@@ -871,14 +874,14 @@ class AsusFileAnalyzer:
             with open(output_file, 'w', encoding='utf-8') as f:
                 f.write("# 바이너리 파일 분석 보고서\n\n")
                 
-                # 기본 정보
+                # Basic information.
                 f.write("## 📋 기본 정보\n\n")
                 f.write(f"- **분석 일시**: {analysis_data['timestamp']}\n")
                 f.write(f"- **파일명**: `{analysis_data['file_info']['filename']}`\n")
                 f.write(f"- **파일 경로**: `{analysis_data['file_info']['filepath']}`\n")
                 f.write(f"- **파일 크기**: {analysis_data['file_info']['size_bytes']:,} bytes ({analysis_data['file_info']['size_mb']} MB)\n\n")
                 
-                # 매직 바이트
+                # Magic bytes.
                 if analysis_data['magic_bytes']:
                     f.write("## 🔍 매직 바이트 분석\n\n")
                     f.write("| 바이트 | 설명 |\n")
@@ -887,7 +890,7 @@ class AsusFileAnalyzer:
                         f.write(f"| `{magic['bytes']}` | {magic['description']} |\n")
                     f.write("\n")
                 
-                # 매직 패턴 빈도
+                # Magic pattern frequency.
                 if analysis_data['magic_pattern_frequency']:
                     f.write("## 📊 매직 패턴 빈도 분석\n\n")
                     f.write("> 📝 **Note**: 임베디드 파일을 구성하는 바이너리 내에도 매직 패턴 또는 패턴들이 포함될 수 있어, 정확하지 않을 수 있습니다.\n\n")
@@ -897,7 +900,7 @@ class AsusFileAnalyzer:
                         f.write(f"| `{pattern_hex}` | {info['description']} | {info['count']} | {info['frequency_per_mb']} |\n")
                     f.write("\n")
                 
-                # 패턴 분석
+                # Pattern analysis.
                 if analysis_data['patterns']:
                     f.write("## 🔎 패턴 분석\n\n")
                     f.write("> 📝 **Note**: 임베디드 파일을 구성하는 바이너리 내에도 매직 패턴 또는 패턴들이 포함될 수 있어, 정확하지 않을 수 있습니다.\n\n")
@@ -910,7 +913,7 @@ class AsusFileAnalyzer:
                         f.write(f"| {pattern} | {info['count']} | `{positions}` |\n")
                     f.write("\n")
                 
-                # 패턴 빈도 통계
+                # Pattern frequency statistics.
                 if analysis_data['pattern_frequency']:
                     f.write("## 📈 패턴 빈도 통계\n\n")
                     f.write("> 📝 **Note**: 임베디드 파일을 구성하는 바이너리 내에도 매직 패턴 또는 패턴들이 포함될 수 있어, 정확하지 않을 수 있습니다.\n\n")
@@ -921,7 +924,7 @@ class AsusFileAnalyzer:
                             f.write(f"| {description} | {info['count']} | {info['density_per_kb']} | {info['percentage_of_file']} |\n")
                     f.write("\n")
                 
-                # 임베디드 파일
+                # Embedded files.
                 if analysis_data['embedded_files']:
                     f.write("## 🖼️ 임베디드 파일 분석\n\n")
                     f.write(f"총 **{len(analysis_data['embedded_files'])}개**의 임베디드 파일이 발견되었습니다.\n\n")
@@ -941,7 +944,7 @@ class AsusFileAnalyzer:
                         f.write(f"| {i} | {file_info['type']} | `{file_info['start']} - {file_info['end']}` | {file_info['size_bytes']:,} bytes ({file_info['size_kb']} KB) | {details} |\n")
                     f.write("\n")
                 
-                # 엔트로피 분석
+                # Entropy analysis.
                 f.write("## 📊 엔트로피 분석\n\n")
                 
                 if analysis_data['entropy_analysis']['high_entropy']:
@@ -960,7 +963,7 @@ class AsusFileAnalyzer:
                         f.write(f"| `{entry['offset']}` | {entry['entropy']} |\n")
                     f.write("\n")
                 
-                # 구조 분석
+                # Structure analysis.
                 if analysis_data['structure_analysis']['null_sequences']:
                     f.write("## 🏗️ 구조 분석\n\n")
                     f.write("### NULL 바이트 시퀀스 (패딩/정렬 가능성)\n\n")
@@ -970,7 +973,7 @@ class AsusFileAnalyzer:
                         f.write(f"| `{seq['offset']}` | {seq['length']} bytes |\n")
                     f.write("\n")
                 
-                # 바이트 통계
+                # Byte statistics.
                 if analysis_data['byte_statistics']:
                     f.write("## 📈 바이트 통계 (처음 10KB 기준)\n\n")
                     f.write("| 바이트 값 | 개수 | 비율 |\n")
@@ -979,7 +982,7 @@ class AsusFileAnalyzer:
                         f.write(f"| `{byte_val}` | {stats['count']} | {stats['percentage']}% |\n")
                     f.write("\n")
                 
-                # 요약
+                # Summary
                 f.write("## 📝 분석 요약\n\n")
                 
                 if 'Section_Raw' in analysis_data['file_info']['filepath'] and '.bin' in analysis_data['file_info']['filepath']:
@@ -1006,7 +1009,7 @@ class AsusFileAnalyzer:
             return False
     
     def run_full_analysis(self):
-        """전체 분석 실행"""
+        """Run the full analysis workflow."""
         print("바이너리 파일 분석을 시작합니다...")
         print("="*60)
         
@@ -1018,15 +1021,15 @@ class AsusFileAnalyzer:
         self.analyze_structure()
         self.generate_summary()
         
-        # 분석 완료 후 보고서 저장
+        # Save reports after analysis completes.
         print("\n" + "="*60)
         print("=== 분석 보고서 저장 ===")
         print("="*60)
         
-        # TXT 보고서 저장
+        # Save TXT report.
         txt_success = self.save_analysis_results_txt()
         
-        # 마크다운 보고서 저장
+        # Save Markdown report.
         md_success = self.save_analysis_results_md()
         
         if txt_success and md_success:
@@ -1036,7 +1039,7 @@ class AsusFileAnalyzer:
         else:
             print("❌ 분석 보고서 저장에 실패했습니다.")
         
-        # 저장된 파일 위치 안내
+        # Print saved report locations.
         base_name = os.path.splitext(self.file_path)[0]
         print(f"\n📁 보고서 저장 위치:")
         print(f"   TXT: {base_name}_analysis.txt")

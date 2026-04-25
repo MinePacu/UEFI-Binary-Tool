@@ -1,8 +1,7 @@
-"""
-MSI BIOS Section Binary 분석 모듈
+"""MSI BIOS Section Binary package.
 
-MSI 메인보드의 BIOS/UEFI Section 바이너리 파일을 분석하고 리패킹하는 모듈입니다.
-MSI Packer 형식 ($MsI$ 시그니처)을 지원합니다.
+Analyzes and repacks MSI motherboard BIOS/UEFI Section binary files.
+Supports MSI Packer format with the $MsI$ signature.
 """
 
 __version__ = "1.0.0"

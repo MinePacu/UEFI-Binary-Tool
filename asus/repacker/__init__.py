@@ -1,7 +1,7 @@
 """
-ASUS 리패커 모듈 초기화
+ASUS repacker package initialization
 
-ASUS 이미지 리패킹 관련 클래스들을 포함합니다.
+Contains ASUS image repacking classes.
 """
 
 from .asus_repacker import AsusImageRepacker

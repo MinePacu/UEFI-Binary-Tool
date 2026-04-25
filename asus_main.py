@@ -1,21 +1,22 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-ASUS BIOS 이미지 분석/추출/리패킹 통합 도구
-메인보드 제조사별 분류 시스템의 ASUS 모듈
+Integrated ASUS BIOS image analysis/repack tool
+ASUS module for the motherboard-vendor tool layout
 """
 
 import os
 import sys
 
-# 현재 스크립트의 디렉터리를 Python 경로에 추가
+# Add the current script directory to Python path.
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-# 모듈 import
+# Import project modules.
 try:
     from common.file_utils import get_file_path_input, validate_file_path, get_command_line_file
+    from common.binary_validation import validate_asus_binary
     from asus.analyzer.asus_analyzer import AsusFileAnalyzer
     from asus.repacker.asus_repacker import AsusImageRepacker
 except ImportError as e:
@@ -25,7 +26,7 @@ except ImportError as e:
 
 
 def print_banner():
-    """프로그램 배너 출력"""
+    """Print the program banner."""
     print("=" * 70)
     print("           ASUS BIOS 이미지 분석/리패킹 통합 도구 v3.0")
     print("=" * 70)
@@ -36,22 +37,22 @@ def print_banner():
 
 
 def get_target_file(provided_file=None):
-    """대상 파일 경로 확인 및 반환"""
+    """Resolve and return the target file path."""
     file_path = provided_file
     
     if file_path is None:
-        # 명령줄 인수 확인
+        # Check command-line arguments.
         file_path = get_command_line_file()
     
     if file_path is None:
-        # 기본 파일 경로 (현재 프로그램 디렉터리에 있는 파일)
+        # Default file path in the current program directory.
         default_file_path = os.path.join(current_dir, "Section_Raw_CC5840D2-D8EA-459E-BAF4-349AC710EBBE_body.bin")
         
-        # 사용자로부터 파일 경로 입력받기
+        # Prompt the user for a file path.
         print("분석할 ASUS BIOS 파일을 선택하세요.")
         file_path = get_file_path_input("분석할 파일의 전체 경로를 입력하세요", default_file_path)
         
-        # 파일 경로 유효성 검사
+        # Validate the file path.
         if not validate_file_path(file_path):
             return None
         
@@ -63,7 +64,7 @@ def get_target_file(provided_file=None):
 
 
 def analyze_mode(file_path=None):
-    """ASUS 파일 분석 모드"""
+    """Run ASUS file analysis mode."""
     print("\n[ANALYZE] ASUS 파일 분석 모드")
     print("=" * 50)
     
@@ -72,6 +73,15 @@ def analyze_mode(file_path=None):
         return False
     
     try:
+        validation = validate_asus_binary(target_file)
+        if not validation.is_valid:
+            print(f"[ERROR] 유효하지 않은 ASUS 파일입니다: {validation.message}")
+            for detail in validation.details:
+                print(f"  - {detail}")
+            return False
+        for detail in validation.details:
+            print(f"[VALID] {detail}")
+
         analyzer = AsusFileAnalyzer(target_file)
         analyzer.run_full_analysis()
         return True
@@ -82,7 +92,7 @@ def analyze_mode(file_path=None):
 
 
 def repack_mode(file_path=None):
-    """ASUS 이미지 리패킹 모드"""
+    """Run ASUS image repack mode."""
     print("\n[REPACK] ASUS 이미지 리패킹 모드")
     print("=" * 50)
     
@@ -91,7 +101,7 @@ def repack_mode(file_path=None):
         return False
     
     try:
-        # 추출된 ASUS 이미지 디렉터리 경로 입력받기
+        # Prompt for the extracted ASUS image directory.
         default_extracted_dir = os.path.join(os.path.dirname(file_path), "asus_extracted")
         print(f"\nASUS Packer로 추출된 이미지 파일들이 있는 디렉터리를 지정하세요.")
         extracted_dir = get_file_path_input("ASUS 추출 디렉터리 경로를 입력하세요", default_extracted_dir)
@@ -101,14 +111,14 @@ def repack_mode(file_path=None):
             print(f"경로: {extracted_dir}")
             return False
         
-        # 출력 파일명 설정
+        # Resolve output file name.
         output_file = input("출력 파일명을 입력하세요 (엔터시 자동 생성): ").strip()
         if not output_file:
             base_name = os.path.splitext(os.path.basename(target_file))[0]
             output_dir = os.path.dirname(target_file)
             output_file = os.path.join(output_dir, f"{base_name}_asus_repacked.bin")
         
-        # 구조 보존 옵션
+        # Structure-preservation option placeholder.
         
         repacker = AsusImageRepacker(target_file)
         success = repacker.run_repack(extracted_dir, output_file)
@@ -126,7 +136,7 @@ def repack_mode(file_path=None):
         return False
 
 def interactive_mode():
-    """대화형 모드"""
+    """Run interactive mode."""
     print_banner()
     
     while True:
@@ -157,9 +167,9 @@ def interactive_mode():
 
 
 def main():
-    """메인 함수"""
+    """Program entry point."""
     if len(sys.argv) < 2:
-        # 인수가 없으면 대화형 모드
+        # Enter interactive mode when no arguments are provided.
         interactive_mode()
         return
     

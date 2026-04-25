@@ -25,6 +25,7 @@
 ## 🚀 주요 기능
 
 - **Section Binary 파일 분석**: 매직 바이트 패턴 검출 및 구조 분석
+- **파일 로드 전 형식 검증**: ASUS/MSI Packer 시그니처와 기본 엔트리 구조 확인
 - **이미지 리패킹**: 수정된 이미지를 각 제조사의 Packer 형식으로 패키징
 
 ## 🛠️ 설치 및 요구사항
@@ -40,19 +41,60 @@
 
 ## 🎯 사용법
 
-### 1. Windows에서 배치 파일 실행
+### 1. UI 프로그램 실행
+
+배치 파일을 사용하지 않고 UI로 실행할 수 있습니다.
+
+```bash
+python3 gui_main.py
+```
+
+또는 패키지 모듈로 실행할 수 있습니다.
+
+```bash
+python3 -m uefi_binary_tool
+```
+
+Python에 Tkinter가 포함된 환경에서는 데스크톱 GUI가 열립니다. Tkinter가 없는 Python 빌드에서는 자동으로 로컬 웹 UI가 실행되고 브라우저가 열립니다.
+
+UI 언어는 운영체제 언어 설정을 기준으로 자동 선택됩니다.
+- 한국어 OS: 한국어 UI
+- 그 외 언어: 영어 UI
+
+테스트나 배포 환경에서 언어를 강제로 지정하려면 다음 환경 변수를 사용할 수 있습니다.
+
+```bash
+UEFI_BINARY_TOOL_LANG=ko python3 gui_main.py
+UEFI_BINARY_TOOL_LANG=en python3 gui_main.py
+```
+
+### 2. Windows에서 기존 배치 파일 실행
 
 **ASUS 도구:**
 ```bash
-asus_tools.bat
+batch\asus_tools.bat
 ```
 
 **MSI 도구:**
 ```bash
-msi_tools.bat
+batch\msi_tools.bat
 ```
 
-### 2. Python 직접 실행
+배치 파일도 운영체제 언어 설정을 기준으로 한국어/영어를 자동 선택합니다.
+- 한국어 Windows: 한국어 배치 메뉴
+- 그 외 언어: 영어 배치 메뉴
+
+배치 파일 언어도 환경 변수로 강제 지정할 수 있습니다.
+
+```bat
+set UEFI_BINARY_TOOL_LANG=ko
+batch\asus_tools.bat
+
+set UEFI_BINARY_TOOL_LANG=en
+batch\msi_tools.bat
+```
+
+### 3. Python 직접 실행
 
 #### ASUS 대화형 모드
 ```bash
@@ -85,9 +127,9 @@ python msi_main.py repack [디렉터리경로]
 ```
 
 #### 드래그 앤 드롭
-**ASUS**: BIOS 파일을 `asus_tools.bat`로 직접 드래그하여 실행할 수 있습니다.
+**ASUS**: BIOS 파일을 `batch\asus_tools.bat`로 직접 드래그하여 실행할 수 있습니다.
 
-**MSI**: MSI BIOS 파일(.bin)을 `msi_tools.bat`로 드래그하면 다음과 같이 자동 처리됩니다:
+**MSI**: MSI BIOS 파일(.bin)을 `batch\msi_tools.bat`로 드래그하면 다음과 같이 자동 처리됩니다:
 1. 🔍 **파일 분석**: MSI Packer 구조 분석
 2. � **추출 폴더 확인**: 기존 `msi_extracted/MSI_pack_폴더/` 검색
 3. 📦 **구조 보존 리패킹**: 원본과 동일한 구조로 재생성
@@ -141,6 +183,7 @@ python msi_main.py repack [디렉터리경로]
 ### 일반적인 오류
 - **모듈 import 오류**: Python 경로 설정 확인
 - **파일 접근 오류**: 파일 권한 및 경로 확인
+- **유효하지 않은 파일 오류**: 선택한 파일이 해당 제조사의 Packer 형식인지 확인
 
 ### 디버깅
 프로그램은 상세한 오류 메시지와 진행 상황을 출력합니다. 문제 발생 시 출력 메시지를 확인하세요.
@@ -149,10 +192,22 @@ python msi_main.py repack [디렉터리경로]
 
 ```
 UEFI-Binary-Tool/
+├── gui_main.py            # UI 프로그램 진입점
 ├── asus_main.py           # ASUS 메인 프로그램 (진입점)
-├── asus_tools.bat         # ASUS Windows 배치 실행 스크립트
 ├── msi_main.py            # MSI 메인 프로그램 (진입점)
-├── msi_tools.bat          # MSI Windows 배치 실행 스크립트
+├── batch/                 # Windows 배치 실행 스크립트
+│   ├── _lang.bat          # 배치 파일 한국어/영어 언어 리소스
+│   ├── asus_tools.bat     # ASUS 도구 배치 실행 스크립트
+│   ├── msi_tools.bat      # MSI 도구 배치 실행 스크립트
+│   └── msi_tools_new.bat  # MSI 도구 호환 실행 스크립트
+├── uefi_binary_tool/      # UI 및 작업 서비스 계층
+│   ├── __main__.py        # python -m uefi_binary_tool 진입점
+│   ├── i18n.py            # 한국어/영어 UI 다국어 리소스
+│   ├── operations.py      # 기존 분석/리패킹 모듈을 UI에서 재사용하는 래퍼
+│   ├── ui/
+│   │   └── app.py         # Tkinter 데스크톱 UI
+│   └── web/
+│       └── app.py         # Tkinter가 없을 때 사용하는 로컬 웹 UI
 ├── asus/                  # ASUS 관련 모듈
 │   ├── analyzer/
 │   │   └── asus_analyzer.py    # ASUS BIOS 파일 분석기
@@ -164,7 +219,8 @@ UEFI-Binary-Tool/
 │   └── repacker/
 │       └── msi_repacker.py     # MSI 이미지 리패커
 └── common/                # 공통 유틸리티
-    └── file_utils.py      # 파일 처리 유틸리티
+    ├── binary_validation.py # ASUS/MSI 바이너리 형식 검증
+    └── file_utils.py        # 파일 처리 유틸리티
 ```
 
 ## 🤝 기여
@@ -174,5 +230,5 @@ UEFI-Binary-Tool/
 ---
 
 **⚡ 빠른 시작**: 
-- **ASUS**: `asus_tools.bat`를 실행하거나 BIOS 파일을 `asus_tools.bat`로 드래그하세요!
-- **MSI**: `msi_tools.bat`를 실행하거나 BIOS 파일을 `msi_tools.bat`로 드래그하세요!
+- **ASUS**: `batch\asus_tools.bat`를 실행하거나 BIOS 파일을 `batch\asus_tools.bat`로 드래그하세요!
+- **MSI**: `batch\msi_tools.bat`를 실행하거나 BIOS 파일을 `batch\msi_tools.bat`로 드래그하세요!
