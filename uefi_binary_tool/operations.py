@@ -11,13 +11,21 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from common.binary_validation import require_valid_vendor_binary
 from asus.analyzer.asus_analyzer import AsusFileAnalyzer
-from asus.repacker.asus_repacker import AsusImageRepacker
+from asus.repacker.asus_repacker import (
+    AsusImageRepacker,
+    localize_asus_validation_detail,
+    localize_asus_validation_error,
+)
 from msi.analyzer.msi_analyzer import MSIFileAnalyzer
-from msi.repacker.msi_repacker import MSIImageRepacker
+from msi.repacker.msi_repacker import (
+    MSIImageRepacker,
+    localize_msi_validation_detail,
+    localize_msi_validation_error,
+)
 from uefi_binary_tool.i18n import t
 
 
@@ -116,16 +124,29 @@ def analyze_msi(file_path: str) -> OperationResult:
     )
 
 
-def repack_asus(original_file: str, extracted_dir: str, output_file: str = "") -> OperationResult:
+def repack_asus(
+    original_file: str,
+    extracted_dir: str,
+    output_file: str = "",
+    log: Optional[Callable[[str], None]] = None,
+    lang: Optional[str] = None,
+) -> OperationResult:
     """Repack ASUS extracted images using the original binary as structure source."""
     _require_file(original_file, t("asus_original_bios_file"))
-    validation = require_valid_vendor_binary(original_file, "asus")
+    try:
+        validation = require_valid_vendor_binary(original_file, "asus")
+    except ValueError as exc:
+        raise ValueError(localize_asus_validation_error(str(exc), lang)) from exc
     for detail in validation.details:
-        print(f"[VALID] {detail}")
+        localized_detail = localize_asus_validation_detail(detail, lang)
+        if log:
+            log(f"[VALID] {localized_detail}\n")
+        else:
+            print(f"[VALID] {localized_detail}")
     _require_dir(extracted_dir, t("asus_extracted_dir"))
 
     output_file = output_file or default_repack_output_path(original_file, "asus")
-    repacker = AsusImageRepacker(original_file)
+    repacker = AsusImageRepacker(original_file, log=log, lang=lang)
     success = repacker.run_repack(extracted_dir, output_file)
 
     return OperationResult(
@@ -139,20 +160,29 @@ def repack_msi(
     input_dir: str,
     output_file: str = "",
     original_file: Optional[str] = None,
+    log: Optional[Callable[[str], None]] = None,
+    lang: Optional[str] = None,
 ) -> OperationResult:
     """Repack MSI extracted images, optionally using an original binary for validation."""
     _require_dir(input_dir, t("msi_extracted_dir"))
     if original_file:
         _require_file(original_file, t("msi_original_bios_file"))
-        validation = require_valid_vendor_binary(original_file, "msi")
+        try:
+            validation = require_valid_vendor_binary(original_file, "msi")
+        except ValueError as exc:
+            raise ValueError(localize_msi_validation_error(str(exc), lang)) from exc
         for detail in validation.details:
-            print(f"[VALID] {detail}")
+            localized_detail = localize_msi_validation_detail(detail, lang)
+            if log:
+                log(f"[VALID] {localized_detail}\n")
+            else:
+                print(f"[VALID] {localized_detail}")
 
     output_file = output_file or default_repack_output_path(input_dir, "msi")
     analyzer = MSIFileAnalyzer()
     original_analysis = analyzer.analyze_file(original_file) if original_file else None
 
-    repacker = MSIImageRepacker()
+    repacker = MSIImageRepacker(log=log, lang=lang)
     success = repacker.repack_from_directory(
         input_dir,
         output_file,

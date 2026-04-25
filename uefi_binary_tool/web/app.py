@@ -92,6 +92,8 @@ def _run_job(form: Dict[str, str]) -> None:
                     form.get("original_file", "").strip(),
                     form.get("input_dir", "").strip(),
                     form.get("output_file", "").strip(),
+                    writer.write,
+                    LANG,
                 )
             else:
                 original_file = form.get("original_file", "").strip() or None
@@ -99,6 +101,8 @@ def _run_job(form: Dict[str, str]) -> None:
                     form.get("input_dir", "").strip(),
                     form.get("output_file", "").strip(),
                     original_file,
+                    writer.write,
+                    LANG,
                 )
     except Exception as exc:
         writer.write(traceback.format_exc())
