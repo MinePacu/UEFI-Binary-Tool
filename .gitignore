@@ -1,6 +1,7 @@
-/wiki/
-
 # Python bytecode/cache files
 __pycache__/
 *.py[cod]
 *$py.class
+
+# Local web UI generated outputs
+/web_outputs/

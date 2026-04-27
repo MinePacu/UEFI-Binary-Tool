@@ -31,7 +31,14 @@ from uefi_binary_tool.i18n import t
 
 @dataclass
 class OperationResult:
-    """UI-friendly result object for analysis and repack operations."""
+    """UI-friendly result object for analysis and repack operations.
+
+    Args:
+        success: Whether the operation completed successfully.
+        message: User-facing result message.
+        outputs: Generated output file paths, when available.
+        data: Optional structured analysis or repack details.
+    """
 
     success: bool
     message: str
@@ -40,7 +47,12 @@ class OperationResult:
 
 
 def _require_file(file_path: str, label: str = "") -> None:
-    """Validate that file_path points to an existing file."""
+    """Validate that file_path points to an existing file.
+
+    Args:
+        file_path: Local filesystem path that must exist as a regular file.
+        label: Optional localized field name used in validation errors.
+    """
     label = label or t("file_label")
     if not file_path:
         raise ValueError(t("path_empty", label=label))
@@ -49,7 +61,12 @@ def _require_file(file_path: str, label: str = "") -> None:
 
 
 def _require_dir(dir_path: str, label: str = "") -> None:
-    """Validate that dir_path points to an existing directory."""
+    """Validate that dir_path points to an existing directory.
+
+    Args:
+        dir_path: Local filesystem path that must exist as a directory.
+        label: Optional localized field name used in validation errors.
+    """
     label = label or t("dir_label")
     if not dir_path:
         raise ValueError(t("path_empty", label=label))
@@ -58,7 +75,15 @@ def _require_dir(dir_path: str, label: str = "") -> None:
 
 
 def default_analysis_report_path(file_path: str, vendor: str) -> str:
-    """Return the default report path for an analysis operation."""
+    """Return the default report path for an analysis operation.
+
+    Args:
+        file_path: Source BIOS/Section binary path.
+        vendor: Vendor name, such as "asus" or "msi".
+
+    Returns:
+        Default report path derived from the source file name.
+    """
     base = os.path.splitext(file_path)[0]
     if vendor.lower() == "asus":
         return f"{base}_analysis.txt"
@@ -66,13 +91,28 @@ def default_analysis_report_path(file_path: str, vendor: str) -> str:
 
 
 def default_repack_output_path(input_path: str, vendor: str) -> str:
-    """Return the default output path for a repack operation."""
+    """Return the default output path for a repack operation.
+
+    Args:
+        input_path: Source file path or extracted-image directory path.
+        vendor: Vendor name, such as "asus" or "msi".
+
+    Returns:
+        Default repacked binary path derived from the input path.
+    """
     base = os.path.splitext(input_path)[0] if os.path.isfile(input_path) else input_path
     return f"{base}_{vendor.lower()}_repacked.bin"
 
 
 def analyze_asus(file_path: str) -> OperationResult:
-    """Validate and analyze an ASUS BIOS/Section binary file."""
+    """Validate and analyze an ASUS BIOS/Section binary file.
+
+    Args:
+        file_path: Local path to an ASUS BIOS/Section binary.
+
+    Returns:
+        OperationResult containing success state, message, outputs, and summary data.
+    """
     _require_file(file_path, t("asus_bios_file"))
     validation = require_valid_vendor_binary(file_path, "asus")
     for detail in validation.details:
@@ -100,7 +140,14 @@ def analyze_asus(file_path: str) -> OperationResult:
 
 
 def analyze_msi(file_path: str) -> OperationResult:
-    """Validate and analyze an MSI BIOS/Section binary file."""
+    """Validate and analyze an MSI BIOS/Section binary file.
+
+    Args:
+        file_path: Local path to an MSI BIOS/Section binary.
+
+    Returns:
+        OperationResult containing success state, message, outputs, and analysis data.
+    """
     _require_file(file_path, t("msi_bios_file"))
     validation = require_valid_vendor_binary(file_path, "msi")
     for detail in validation.details:
@@ -131,7 +178,18 @@ def repack_asus(
     log: Optional[Callable[[str], None]] = None,
     lang: Optional[str] = None,
 ) -> OperationResult:
-    """Repack ASUS extracted images using the original binary as structure source."""
+    """Repack ASUS extracted images using the original binary as structure source.
+
+    Args:
+        original_file: Local path to the original ASUS BIOS/Section binary.
+        extracted_dir: Directory containing the extracted ASUS image structure.
+        output_file: Optional output binary path. A default path is used when empty.
+        log: Optional callback that receives progress log text.
+        lang: Optional UI language code used for localized validation messages.
+
+    Returns:
+        OperationResult containing success state, message, and generated output paths.
+    """
     _require_file(original_file, t("asus_original_bios_file"))
     try:
         validation = require_valid_vendor_binary(original_file, "asus")
@@ -163,7 +221,18 @@ def repack_msi(
     log: Optional[Callable[[str], None]] = None,
     lang: Optional[str] = None,
 ) -> OperationResult:
-    """Repack MSI extracted images, optionally using an original binary for validation."""
+    """Repack MSI extracted images, optionally using an original binary for validation.
+
+    Args:
+        input_dir: Directory containing extracted MSI image files.
+        output_file: Optional output binary path. A default path is used when empty.
+        original_file: Optional original MSI BIOS/Section binary for validation and ordering.
+        log: Optional callback that receives progress log text.
+        lang: Optional UI language code used for localized validation messages.
+
+    Returns:
+        OperationResult containing success state, message, outputs, and repack data.
+    """
     _require_dir(input_dir, t("msi_extracted_dir"))
     if original_file:
         _require_file(original_file, t("msi_original_bios_file"))

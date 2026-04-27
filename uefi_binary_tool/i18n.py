@@ -45,11 +45,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "outputs": "출력",
         "analyze_label": "{vendor} 분석",
         "repack_label": "{vendor} 리패킹",
-        "browser_path_hint": "파일 선택 창은 브라우저 보안상 로컬 경로를 앱에 전달하지 않으므로 전체 경로를 입력하세요.",
+        "browser_path_hint": "파일/폴더 선택을 사용하거나, 직접 경로를 펼쳐 전체 로컬 경로를 입력하세요.",
         "path_file_placeholder": "/path/to/file.bin",
         "path_original_placeholder": "/path/to/original.bin",
         "path_dir_placeholder": "/path/to/asus_extracted 또는 /path/to/msi_extracted",
         "auto_output_placeholder": "비워두면 자동 생성",
+        "choose_file": "파일 선택",
+        "choose_directory": "폴더 선택",
+        "manual_path": "직접 경로",
+        "selected_file": "선택된 파일: {name}",
+        "selected_files": "선택된 파일: {count}개",
+        "no_file_selected": "선택된 파일 없음",
         "run_failed": "실행 실패",
         "already_running": "작업이 이미 실행 중입니다.",
         "job_running": "작업 실행 중",
@@ -76,6 +82,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "msi_repack_failed": "MSI 리패킹에 실패했습니다.",
         "language": "언어",
         "language_name": "한국어",
+        "tool": "도구",
+        "wiki": "위키",
+        "back_to_tool": "도구로 돌아가기",
+        "wiki_not_found": "위키 페이지를 찾을 수 없습니다.",
     },
     "en": {
         "app_title": "UEFI Binary Tool",
@@ -109,11 +119,17 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "outputs": "Outputs",
         "analyze_label": "{vendor} Analysis",
         "repack_label": "{vendor} Repack",
-        "browser_path_hint": "Because of browser security restrictions, enter full local paths instead of using a file picker.",
+        "browser_path_hint": "Use the file/folder picker, or expand manual path fields to enter full local paths.",
         "path_file_placeholder": "/path/to/file.bin",
         "path_original_placeholder": "/path/to/original.bin",
         "path_dir_placeholder": "/path/to/asus_extracted or /path/to/msi_extracted",
         "auto_output_placeholder": "Leave empty to auto-generate",
+        "choose_file": "Choose File",
+        "choose_directory": "Choose Folder",
+        "manual_path": "Manual path",
+        "selected_file": "Selected file: {name}",
+        "selected_files": "Selected files: {count}",
+        "no_file_selected": "No file selected",
         "run_failed": "Run failed",
         "already_running": "An operation is already running.",
         "job_running": "Operation running",
@@ -140,6 +156,10 @@ TRANSLATIONS: Dict[str, Dict[str, str]] = {
         "msi_repack_failed": "MSI repack failed.",
         "language": "Language",
         "language_name": "English",
+        "tool": "Tool",
+        "wiki": "Wiki",
+        "back_to_tool": "Back to Tool",
+        "wiki_not_found": "Wiki page not found.",
     },
 }
 
@@ -148,6 +168,9 @@ def detect_language() -> str:
     """Return the UI language from the OS locale.
 
     UEFI_BINARY_TOOL_LANG can be set to "ko" or "en" for testing or packaging.
+
+    Returns:
+        Supported language code, currently "ko" or "en".
     """
     override = os.environ.get("UEFI_BINARY_TOOL_LANG", "").strip().lower()
     if override in SUPPORTED_LANGUAGES:
@@ -169,7 +192,16 @@ def detect_language() -> str:
 
 
 def t(key: str, lang: str | None = None, **kwargs: Any) -> str:
-    """Translate a message key for the selected language and format placeholders."""
+    """Translate a message key for the selected language and format placeholders.
+
+    Args:
+        key: Translation key to look up.
+        lang: Optional language code. When omitted, the detected UI language is used.
+        **kwargs: Placeholder values passed to ``str.format`` for the translation.
+
+    Returns:
+        Localized text, or the key itself when no translation exists.
+    """
     language = lang or detect_language()
     text = TRANSLATIONS.get(language, TRANSLATIONS["en"]).get(key)
     if text is None:
